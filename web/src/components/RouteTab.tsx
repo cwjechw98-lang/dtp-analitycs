@@ -6,6 +6,10 @@ import { SEV_COLORS } from "../lib/data";
 import EChart from "./EChart";
 import { Badge, Card } from "./ui";
 import { filterCorridor, haversine, pointInCircle, pointInPolygon } from "../lib/corridor";
+// Плагин кластеров обязан регистрироваться при загрузке модуля:
+// Leaflet в этой вкладке импортируется динамически, без side-effect
+// импорта T.markerClusterGroup не появится в динамическом инстансе.
+import "leaflet.markercluster";
 import { fetchRoute, geocode, type GeoResult, type OsrmRoute } from "../lib/osrm";
 import { seasonOfYm, todOf } from "../lib/time";
 import {

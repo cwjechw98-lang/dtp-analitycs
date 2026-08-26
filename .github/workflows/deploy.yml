@@ -28,7 +28,11 @@ jobs:
 
       - name: Install dependencies
         working-directory: web
-        run: npm ci
+        run: |
+          npm ci --loglevel=silly 2>&1 | tee /tmp/ci.log | tail -5
+          grep -n -m5 -i "invalid version\|Invalid Version" /tmp/ci.log || true
+          grep -n -B6 -m2 -i "invalid version" /tmp/ci.log | head -60 || true
+          exit ${PIPESTATUS[0]}
 
       - name: Typecheck
         working-directory: web

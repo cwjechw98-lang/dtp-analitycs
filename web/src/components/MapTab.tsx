@@ -78,7 +78,6 @@ function HeatMapMode() {
   useEffect(() => {
     if (state !== "ready" || !el.current || mapRef.current) return;
     const map = L.map(el.current, { preferCanvas: true, minZoom: 2 }).setView([58, 60], 3);
-    createTileLayer(tileId).addTo(map);
 
     const maxTotal = cells.length ? cells[0].total : 1;
     for (const c of cells) {
@@ -214,7 +213,6 @@ function RegionMapMode() {
     if (!el.current || mapRef.current || !app.regionFile) return;
     const b = app.regionFile.bbox;
     const map = L.map(el.current, { preferCanvas: true });
-    createTileLayer(tileId).addTo(map);
     map.fitBounds([[b[0], b[2]], [b[1], b[3]]]);    const cluster = L.markerClusterGroup({
       chunkedLoading: true,
       maxClusterRadius: 42,

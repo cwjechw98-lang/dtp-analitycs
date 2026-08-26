@@ -105,6 +105,22 @@ body {
 }
 .leaflet-popup-content { margin: 12px 14px; font-size: 13px; line-height: 1.45; }
 .leaflet-container { background: #0d1526; font-family: inherit; }
+
+/* Tailwind preflight портит img (max-width:100%; height:auto) — тайлы карты
+   обязаны оставаться в своём размере и позиции, иначе «куски карты блоками». */
+.leaflet-pane img,
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-tile-container img {
+  max-width: none !important;
+  max-height: none !important;
+  width: auto;
+  height: auto;
+}
+.leaflet-container img {
+  max-width: none !important;
+}
 .marker-cluster-small,
 .marker-cluster-medium,
 .marker-cluster-large { background-color: rgba(234, 88, 12, 0.25); }

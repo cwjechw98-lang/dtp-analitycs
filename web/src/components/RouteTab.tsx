@@ -95,7 +95,6 @@ export default function RouteTab() {
       const L = await import("leaflet");
       if (destroyed || !node) return;
       const map = L.map(node, { preferCanvas: true }).setView([56, 44], 5);
-      createTileLayer(DEFAULT_PROVIDER).addTo(map);
       const group = L.layerGroup().addTo(map);
       map.on("click", (e: L.LeafletMouseEvent) => {
         const mode = pickRef.current;

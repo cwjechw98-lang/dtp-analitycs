@@ -1,6 +1,36 @@
 import type { PointRow } from "./types";
 
+const R = 6_371_000; // радиус Земли, м
 const KY = 110_540; // метров в градусе широты
+
+export function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const toRad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * toRad;
+  const dLon = (lon2 - lon1) * toRad;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+/** Расстояние от точки до отрезка AB в метрах (локальная проекция). */
+export function pointToSegmentMeters(
+  plat: number, plon: number,
+  alat: number, alon: number,
+  blat: number, blon: number,
+): number {
+  const latMid = ((alat + blat + plat) / 3) * (Math.PI / 180);
+  const kx = 111_320 * Math.cos(latMid);
+  const px = plon * kx, py = plat * KY;
+  const ax = alon * kx, ay = alat * KY;
+  const bx = blon * kx, by = blat * KY;
+  const dx = bx - ax, dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  let t = lenSq === 0 ? 0 : ((px - ax) * dx + (py - ay) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  const ex = ax + t * dx - px, ey = ay + t * dy - py;
+  return Math.sqrt(ex * ex + ey * ey);
+}
 
 interface Segment {
   ax: number; ay: number; bx: number; by: number;

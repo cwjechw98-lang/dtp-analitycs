@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet.markercluster";
-import type { Datasets } from "../lib/data";
+import { useApp } from "../state/AppState";
+import { geohashDecode } from "../lib/geo";
 import { SEV_COLORS } from "../lib/data";
-import { Card } from "./ui";
+import { deriveRegion } from "../lib/derive";
+import { Badge, Card } from "./ui";
 
 const MONTHS = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
 const TOD_NAMES = ["Ночь", "Утро", "День", "Вечер"];
+const MAX_HEAT_DOTS = 14000;
 
 function todOf(hour: number): number {
   if (hour >= 23 || hour < 6) return 0;
@@ -15,39 +18,138 @@ function todOf(hour: number): number {
   return 3;
 }
 
-export default function MapTab({ data }: { data: Datasets }) {
+export default function MapTab() {
+  const app = useApp();
+  const isRu = app.scope === "ALL";
+  return isRu ? <HeatMapMode /> : <RegionMapMode />;
+}
+
+/* ============================== Россия: плотность ============================== */
+function HeatMapMode() {
+  const app = useApp();
+  const el = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mapRef = useRef<any>(null);
+  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [cells, setCells] = useState<{ lat: number; lon: number; total: number; severe: number }[]>([]);
+  const [tileErrors, setTileErrors] = useState(0);
+
+  useEffect(() => {
+    app
+      .loadHeatCells()
+      .then((raw) => {
+        const parsed = raw
+          .map((c: (string | number)[]) => {
+            const [lat, lon] = geohashDecode(String(c[0]));
+            const s1 = Number(c[2]);
+            const s2 = Number(c[3]);
+            return { lat, lon, total: Number(c[1]) + s1 + s2, severe: s1 + s2 };
+          })
+          .sort((a: { total: number }, b: { total: number }) => b.total - a.total)
+          .slice(0, MAX_HEAT_DOTS);
+        setCells(parsed);
+        setState("ready");
+      })
+      .catch(() => setState("error"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (state !== "ready" || !el.current || mapRef.current) return;
+    const map = L.map(el.current, { preferCanvas: true, minZoom: 2 }).setView([58, 60], 3);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 18,
+    })
+      .on("tileerror", () => setTileErrors((n) => n + 1))
+      .addTo(map);
+
+    const maxTotal = cells.length ? cells[0].total : 1;
+    for (const c of cells) {
+      const t = Math.sqrt(c.total / maxTotal); // 0..1
+      L.circleMarker([c.lat, c.lon], {
+        radius: 2.5 + t * 7,
+        fillColor: c.severe / c.total > 0.72 ? "#ef4444" : c.severe / c.total > 0.62 ? "#f59e0b" : "#fb923c",
+        color: "transparent",
+        fillOpacity: 0.28 + t * 0.45,
+      })
+        .bindTooltip(`${c.total.toLocaleString("ru-RU")} ДТП в ячейке ~5×5 км`)
+        .addTo(map);
+    }
+    setTimeout(() => map.invalidateSize(), 60);
+    mapRef.current = map;
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
+  }, [state, cells]);
+
+  return (
+    <div className="space-y-3">
+      <Card title="Плотность ДТП по стране" subtitle={`Топ-${cells.length.toLocaleString("ru-RU")} геохэш-ячеек ~5×5 км · размер и яркость точки = число аварий`}>
+        <div className="flex flex-wrap gap-2 text-xs text-slate-400">
+          <Badge tone="orange">точка ≈ квадрат 5×5 км</Badge>
+          <Badge tone="red">красные — доля тяжёлых &gt; 72%</Badge>
+          <Badge>кликни по точке для числа ДТП</Badge>
+        </div>
+      </Card>
+      <div className="relative overflow-hidden rounded-2xl border border-slate-800">
+        <div ref={el} className="h-[74vh] min-h-[440px] w-full" />
+        {state === "loading" && (
+          <div className="absolute inset-0 z-[500] flex items-center justify-center bg-slate-900/70 text-sm text-slate-300">
+            Загружаем тепловую карту страны…
+          </div>
+        )}
+        {tileErrors > 8 && (
+          <div className="absolute bottom-3 right-3 z-[500] rounded-lg bg-red-500/20 px-3 py-2 text-xs text-red-200 ring-1 ring-red-500/40">
+            Плитки карты подгружаются с ошибками — проверь интернет или отключи блокировщик.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ============================== Регион: точки ============================== */
+function RegionMapMode() {
+  const app = useApp();
+  const dicts = app.dicts;
   const el = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef = useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const clusterRef = useRef<any>(null);
+  const [ready, setReady] = useState(false);
 
-  const [yearFrom, setYearFrom] = useState(2015);
-  const [yearTo, setYearTo] = useState(new Date().getFullYear());
+  const years = useMemo(
+    () =>
+      Array.from(new Set((app.regionFile?.rows ?? []).map((r) => Math.floor(r[2] / 100)))).sort(),
+    [app.regionFile],
+  );
+  const yMinDefault = years[0] ?? 2015;
+  const yMaxDefault = years[years.length - 1] ?? new Date().getFullYear();
+
+  const [yearFrom, setYearFrom] = useState(yMinDefault);
+  const [yearTo, setYearTo] = useState(yMaxDefault);
   const [sevSel, setSevSel] = useState<boolean[]>([true, true, true]);
   const [cat, setCat] = useState("all");
   const [weather, setWeather] = useState("all");
   const [tod, setTod] = useState(-1);
 
-  const dicts = data.points.dicts;
-
-  const years = useMemo(() => {
-    const ys = Object.keys(data.meta.counts_by_year).map(Number).sort();
-    return ys;
-  }, [data]);
+  useEffect(() => {
+    setYearFrom(years[0] ?? 2015);
+    setYearTo(years[years.length - 1] ?? 2100);
+  }, [years]);
 
   useEffect(() => {
-    if (!el.current || mapRef.current) return;
-    const b = data.meta.bbox;
+    if (!el.current || mapRef.current || !app.regionFile) return;
+    const b = app.regionFile.bbox;
     const map = L.map(el.current, { preferCanvas: true });
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       maxZoom: 18,
     }).addTo(map);
-    map.fitBounds([
-      [b.lat_min, b.lon_min],
-      [b.lat_max, b.lon_max],
-    ]);
+    map.fitBounds([[b[0], b[2]], [b[1], b[3]]]);
     const cluster = L.markerClusterGroup({
       chunkedLoading: true,
       maxClusterRadius: 42,
@@ -56,19 +158,19 @@ export default function MapTab({ data }: { data: Datasets }) {
     map.addLayer(cluster);
     mapRef.current = map;
     clusterRef.current = cluster;
+    setTimeout(() => map.invalidateSize(), 60);
     setReady(true);
     return () => {
       map.remove();
       mapRef.current = null;
       clusterRef.current = null;
+      setReady(false);
     };
-  }, [data]);
-
-  const [ready, setReady] = useState(false);
+  }, [app.regionFile]);
 
   const filtered = useMemo(
     () =>
-      data.points.rows.filter((r) => {
+      (app.regionFile?.rows ?? []).filter((r) => {
         const y = Math.floor(r[2] / 100);
         if (y < yearFrom || y > yearTo) return false;
         if (!sevSel[r[5]]) return false;
@@ -77,7 +179,7 @@ export default function MapTab({ data }: { data: Datasets }) {
         if (tod >= 0 && todOf(r[4]) !== tod) return false;
         return true;
       }),
-    [data, yearFrom, yearTo, sevSel, cat, weather, tod, dicts],
+    [app.regionFile, yearFrom, yearTo, sevSel, cat, weather, tod, dicts],
   );
 
   useEffect(() => {
@@ -86,35 +188,39 @@ export default function MapTab({ data }: { data: Datasets }) {
     cluster.clearLayers();
     for (const r of filtered) {
       const m = L.circleMarker([r[0], r[1]], {
-          radius: r[5] === 2 ? 7 : r[5] === 1 ? 5 : 4,
-          fillColor: SEV_COLORS[r[5]],
-          color: "#0b1220",
-          weight: 1,
-          fillOpacity: 0.85,
-        });
-        const ym = r[2];
-        const when = `${MONTHS[(ym % 100) - 1]} ${Math.floor(ym / 100)}, ~${String(r[4]).padStart(2, "0")}:00`;
-        const expTxt = r[10] >= 0 ? data.experience.buckets[r[10]] + " лет" : "нет данных";
-        const parts: string[] = [
-          `<b>${dicts.cats[r[6]] ?? "—"}</b>`,
-          `<span style="color:${SEV_COLORS[r[5]]}">${dicts.sevs[r[5]]}</span> · ${when}`,
-          `🕯️ ${dicts.lights[r[7]] ?? "—"}`,
-          `🌤️ ${dicts.weathers[r[8]] ?? "—"} · 🛣️ ${dicts.roads[r[9]] ?? "—"}`,
-        ];
-        if (r[11] >= 0) parts.push(`🚗 ${dicts.brands[r[11]]}`);
-        parts.push(`👨‍✈️ макс. стаж водителя: ${expTxt}`);
-        if (r[12] > 0) parts.push(`<span style="color:#ef4444">☠️ погибло: ${r[12]}</span>`);
-        if (r[13] > 0) parts.push(`🏥 ранено: ${r[13]}`);
-        m.bindPopup(parts.join("<br/>"));
-        cluster.addLayer(m);
-      }
-  }, [filtered, ready, dicts, data]);
+        radius: r[5] === 2 ? 7 : r[5] === 1 ? 5 : 4,
+        fillColor: SEV_COLORS[r[5]],
+        color: "#0b1220",
+        weight: 1,
+        fillOpacity: 0.85,
+      });
+      const ym = r[2];
+      const when = `${MONTHS[(ym % 100) - 1]} ${Math.floor(ym / 100)}, ~${String(r[4]).padStart(2, "0")}:00`;
+      const expTxt = r[10] >= 0 ? app.experience.buckets[r[10]] + " лет" : "нет данных";
+      const parts: string[] = [
+        `<b>${dicts.cats[r[6]] ?? "—"}</b>`,
+        `<span style="color:${SEV_COLORS[r[5]]}">${dicts.sevs[r[5]]}</span> · ${when}`,
+        `🕯️ ${dicts.lights[r[7]] ?? "—"}`,
+        `🌤️ ${dicts.weathers[r[8]] ?? "—"} · 🛣️ ${dicts.roads[r[9]] ?? "—"}`,
+      ];
+      if (r[11] >= 0) parts.push(`🚗 ${dicts.brands[r[11]]}`);
+      parts.push(`👨‍✈️ макс. стаж водителя: ${expTxt}`);
+      if (r[14] >= 0) parts.push(`⚠️ виновник за рулём: <b>${dicts.brands[r[14]]}</b>`);
+      else if (r[14] === -2) parts.push(`⚠️ виновник не за рулём (пешеход иное)`);
+      if (r[12] > 0) parts.push(`<span style="color:#ef4444">☠️ погибло: ${r[12]}</span>`);
+      if (r[13] > 0) parts.push(`🏥 ранено: ${r[13]}`);
+      m.bindPopup(parts.join("<br/>"));
+      cluster.addLayer(m);
+    }
+  }, [filtered, ready, dicts, app.experience.buckets]);
 
-  const toggleSev = (i: number) =>
-    setSevSel((s) => s.map((v, j) => (j === i ? !v : v)));
-
+  const toggleSev = (i: number) => setSevSel((s) => s.map((v, j) => (j === i ? !v : v)));
   const selectCls =
     "rounded-md border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs text-slate-200 max-w-[220px]";
+
+  if (!app.regionFile && !app.regionLoading) {
+    return <Card title="Карта"><p className="text-sm text-slate-400">Выбери регион в шапке.</p></Card>;
+  }
 
   return (
     <div className="space-y-4">
@@ -123,11 +229,11 @@ export default function MapTab({ data }: { data: Datasets }) {
           <label className="flex items-center gap-2">
             с{" "}
             <select value={yearFrom} onChange={(e) => setYearFrom(Number(e.target.value))} className={selectCls}>
-              {years.map((y) => <option key={y}>{y}</option>)}
+              {(years.length ? years : [yMinDefault]).map((y) => (<option key={y}>{y}</option>))}
             </select>
             по{" "}
             <select value={yearTo} onChange={(e) => setYearTo(Number(e.target.value))} className={selectCls}>
-              {years.map((y) => <option key={y}>{y}</option>)}
+              {(years.length ? years : [yMaxDefault]).map((y) => (<option key={y}>{y}</option>))}
             </select>
           </label>
 
@@ -136,10 +242,8 @@ export default function MapTab({ data }: { data: Datasets }) {
               <button
                 key={i}
                 onClick={() => toggleSev(i)}
-                className={`rounded-full px-3 py-1 text-xs font-medium border transition ${
-                  sevSel[i]
-                    ? "border-transparent"
-                    : "border-slate-700 text-slate-500 line-through"
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                  sevSel[i] ? "" : "border-slate-700 text-slate-500 line-through"
                 }`}
                 style={
                   sevSel[i]
@@ -156,7 +260,7 @@ export default function MapTab({ data }: { data: Datasets }) {
             Категория
             <select value={cat} onChange={(e) => setCat(e.target.value)} className={selectCls}>
               <option value="all">Все</option>
-              {dicts.cats.map((c) => <option key={c} value={c}>{c}</option>)}
+              {dicts.cats.map((c) => (<option key={c} value={c}>{c}</option>))}
             </select>
           </label>
 
@@ -164,7 +268,7 @@ export default function MapTab({ data }: { data: Datasets }) {
             Погода
             <select value={weather} onChange={(e) => setWeather(e.target.value)} className={selectCls}>
               <option value="all">Любая</option>
-              {dicts.weathers.map((w) => <option key={w} value={w}>{w}</option>)}
+              {dicts.weathers.map((w) => (<option key={w} value={w}>{w}</option>))}
             </select>
           </label>
 
@@ -172,24 +276,24 @@ export default function MapTab({ data }: { data: Datasets }) {
             Время суток
             <select value={tod} onChange={(e) => setTod(Number(e.target.value))} className={selectCls}>
               <option value={-1}>Любое</option>
-              {TOD_NAMES.map((t, i) => <option key={t} value={i}>{t}</option>)}
+              {TOD_NAMES.map((t, i) => (<option key={t} value={i}>{t}</option>))}
             </select>
           </label>
 
           <span className="ml-auto text-xs text-slate-400">
-            Показано: <b className="text-orange-300">{filtered.length.toLocaleString("ru-RU")}</b> точек
+            Показано: <b className="text-orange-300">{filtered.length.toLocaleString("ru-RU")}</b>
           </span>
         </div>
       </Card>
 
       <div className="relative overflow-hidden rounded-2xl border border-slate-800">
         <div ref={el} className="h-[70vh] min-h-[420px] w-full" />
-        {!ready && (
-          <div className="absolute inset-0 flex items-center justify-center bg-slate-900/70 text-sm text-slate-400">
-            Загружаем карту…
+        {(!ready || app.regionLoading) && (
+          <div className="absolute inset-0 z-[500] flex items-center justify-center bg-slate-900/70 text-sm text-slate-300">
+            Загружаем точки региона…
           </div>
         )}
-        <div className="absolute bottom-3 left-3 z-[500] rounded-xl border border-slate-700 bg-slate-900/85 p-3 text-xs space-y-1.5">
+        <div className="absolute bottom-3 left-3 z-[500] space-y-1.5 rounded-xl border border-slate-700 bg-slate-900/85 p-3 text-xs">
           {[0, 1, 2].map((i) => (
             <div key={i} className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full" style={{ background: SEV_COLORS[i] }} />

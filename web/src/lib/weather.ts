@@ -1,4 +1,4 @@
-import type { Overview } from "./types";
+import type { OverviewAgg } from "./types";
 
 export interface CurrentWeather {
   tempC: number;
@@ -22,7 +22,7 @@ function wmoLabel(code: number): { label: string; cls: string } {
 }
 
 /** Сопоставляет класс Open-Meteo с реальными значениями поля weather датасета. */
-function bestMatch(cls: string, weathers: Overview["weathers"]): string | null {
+function bestMatch(cls: string, weathers: OverviewAgg["weathers"]): string | null {
   const names = weathers.map((w) => w[0]);
   const direct = names.find((n) => n.toLowerCase() === cls.toLowerCase());
   if (direct) return direct;
@@ -34,7 +34,7 @@ function bestMatch(cls: string, weathers: Overview["weathers"]): string | null {
 }
 
 /** Текущая погода в Омске через открытый API Open-Meteo (без ключа). */
-export async function fetchCurrentOmsk(weathers: Overview["weathers"]): Promise<CurrentWeather> {
+export async function fetchCurrentOmsk(weathers: OverviewAgg["weathers"]): Promise<CurrentWeather> {
   const url =
     "https://api.open-meteo.com/v1/forecast" +
     "?latitude=54.9885&longitude=73.3242&current_weather=true";

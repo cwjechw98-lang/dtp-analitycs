@@ -1,52 +1,49 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Datasets } from "../lib/data";
+import { useApp } from "../state/AppState";
+import type { PointRow } from "../lib/types";
 import { ACCENT, SEV_COLORS } from "../lib/data";
 import EChart from "./EChart";
 import { Badge, Card } from "./ui";
 import { filterCorridor } from "../lib/corridor";
 import { fetchRoute, geocode, type GeoResult, type OsrmRoute } from "../lib/osrm";
+import { seasonOfYm, todOf } from "../lib/time";
 import type * as echarts from "echarts";
 
-interface Pt {
-  lat: number;
-  lon: number;
-  label: string;
-}
+interface Pt { lat: number; lon: number; label: string }
 
 const PRESETS: { name: string; a: Pt; b: Pt }[] = [
   {
-    name: "Омск (центр) → Исилькуль, трасса на Тюмень",
-    a: { lat: 54.9885, lon: 73.3242, label: "Омск, центр" },
+    name: "Омск → Исилькуль (трасса на Тюмень)",
+    a: { lat: 54.9885, lon: 73.3242, label: "Омск" },
     b: { lat: 54.9136, lon: 71.2685, label: "Исилькуль" },
   },
   {
-    name: "Омск (центр) → Калачинск",
-    a: { lat: 54.9885, lon: 73.3242, label: "Омск, центр" },
-    b: { lat: 55.0483, lon: 74.5673, label: "Калачинск" },
+    name: "Москва → Санкт-Петербург (М-10/Нева)",
+    a: { lat: 55.7558, lon: 37.6173, label: "Москва" },
+    b: { lat: 59.9386, lon: 30.3141, label: "Санкт-Петербург" },
   },
   {
-    name: "Омск (центр) → Азово",
-    a: { lat: 54.9885, lon: 73.3242, label: "Омск, центр" },
-    b: { lat: 54.9969, lon: 72.7844, label: "Азово" },
+    name: "Москва → Нижний Новгород (М-7)",
+    a: { lat: 55.7558, lon: 37.6173, label: "Москва" },
+    b: { lat: 56.2965, lon: 43.9361, label: "Нижний Новгород" },
   },
   {
-    name: "Омск (центр) → Тара",
-    a: { lat: 54.9885, lon: 73.3242, label: "Омск, центр" },
-    b: { lat: 56.9007, lon: 74.3692, label: "Тара" },
+    name: "Новосибирск → Барнаул",
+    a: { lat: 55.0084, lon: 82.9357, label: "Новосибирск" },
+    b: { lat: 53.3595, lon: 83.7698, label: "Барнаул" },
   },
 ];
 
 const MONTHS = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
 const SEASONS = ["Зима", "Весна", "Лето", "Осень"];
 
-function monthToSeason(m: number): number {
-  return m === 12 || m <= 2 ? 0 : m <= 5 ? 1 : m <= 8 ? 2 : 3;
-}
-
-export default function RouteTab({ data }: { data: Datasets }) {
+export default function RouteTab() {
+  const app = useApp();
   const [a, setA] = useState<Pt | null>(null);
   const [b, setB] = useState<Pt | null>(null);
   const [route, setRoute] = useState<OsrmRoute | null>(null);
+  const [rows, setRows] = useState<PointRow[] | null>(null);
+  const [regionsLoaded, setRegionsLoaded] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pickMode, setPickMode] = useState<"A" | "B" | null>(null);
@@ -64,9 +61,7 @@ export default function RouteTab({ data }: { data: Datasets }) {
   const layersRef = useRef<any>(null);
   const pickRef = useRef<"A" | "B" | null>(null);
 
-  useEffect(() => {
-    pickRef.current = pickMode;
-  }, [pickMode]);
+  useEffect(() => { pickRef.current = pickMode; }, [pickMode]);
 
   useEffect(() => {
     const node = mapEl.current;
@@ -74,8 +69,8 @@ export default function RouteTab({ data }: { data: Datasets }) {
     let destroyed = false;
     (async () => {
       const L = await import("leaflet");
-      if (destroyed) return;
-      const map = L.map(node, { preferCanvas: true }).setView([54.99, 73.37], 10);
+      if (destroyed || !node) return;
+      const map = L.map(node, { preferCanvas: true }).setView([56, 44], 5);
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         maxZoom: 18,
@@ -85,10 +80,11 @@ export default function RouteTab({ data }: { data: Datasets }) {
         const mode = pickRef.current;
         if (!mode) return;
         setResults(null);
-        const pt = { lat: e.latlng.lat, lon: e.latlng.lng, label: `Точка (${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)})` };
+        const pt = { lat: e.latlng.lat, lon: e.latlng.lng, label: `Точка (${e.latlng.lat.toFixed(3)}, ${e.latlng.lng.toFixed(3)})` };
         if (mode === "A") { setA(pt); setPickMode("B"); }
         else { setB(pt); setPickMode(null); }
       });
+      setTimeout(() => map.invalidateSize(), 60);
       mapRef.current = map;
       layersRef.current = group;
     })();
@@ -99,7 +95,6 @@ export default function RouteTab({ data }: { data: Datasets }) {
     };
   }, []);
 
-  // перерисовка слоёв мини-карты
   useEffect(() => {
     (async () => {
       const group = layersRef.current;
@@ -113,8 +108,9 @@ export default function RouteTab({ data }: { data: Datasets }) {
         L.circleMarker([b.lat, b.lon], { radius: 8, color: "#ef4444", fillOpacity: 1, fillColor: "#ef4444" })
           .bindTooltip("Б: " + b.label).addTo(group);
       if (route) {
-        L.polyline(route.geometry, { color: "#f97316", weight: 5, opacity: 0.85 }).addTo(group);
-        mapRef.current?.fitBounds(L.polyline(route.geometry).getBounds(), { padding: [24, 24] });
+        const line = L.polyline(route.geometry, { color: "#f97316", weight: 5, opacity: 0.85 });
+        line.addTo(group);
+        mapRef.current?.fitBounds(line.getBounds(), { padding: [24, 24] });
       }
     })();
   }, [a, b, route]);
@@ -122,14 +118,34 @@ export default function RouteTab({ data }: { data: Datasets }) {
   async function loadRoute(pa: Pt, pb: Pt) {
     setLoading(true);
     setError(null);
+    setRows(null);
+    setRegionsLoaded([]);
     try {
       const r = await fetchRoute([pa.lat, pa.lon], [pb.lat, pb.lon]);
       setRoute(r);
+      // какие регионы пересекает bbox маршрута
+      const lats = r.geometry.map((g) => g[0]);
+      const lons = r.geometry.map((g) => g[1]);
+      const bb = { la0: Math.min(...lats), la1: Math.max(...lats), lo0: Math.min(...lons), lo1: Math.max(...lons) };
+      const hit = app.meta.regions.filter(
+        (rg) =>
+          !(rg.bbox[0] > bb.la1 || rg.bbox[1] < bb.la0 || rg.bbox[2] > bb.lo1 || rg.bbox[3] < bb.lo0),
+      );
+      hit.sort((x, y) => y.total - x.total);
+      const chosen = hit.slice(0, 12); // ограничиваем объём загрузки
+      let acc: PointRow[] = [];
+      for (const rg of chosen) {
+        const f = await app.loadRegion(rg.slug);
+        acc = acc.concat(f.rows);
+        setRegionsLoaded((s) => [...s, rg.name]);
+      }
+      const inCorridor = filterCorridor(acc, r.geometry, bufferM);
+      setRows(inCorridor);
     } catch (e) {
       setRoute(null);
       setError(
         e instanceof Error
-          ? `${e.message}. Публичные гео-сервисы иногда недоступны — попробуй ещё раз или укажи точки кликом по карте.`
+          ? `${e.message}`
           : String(e),
       );
     } finally {
@@ -151,7 +167,7 @@ export default function RouteTab({ data }: { data: Datasets }) {
       const items = await geocode(q);
       setResults({ for: which, items });
     } catch {
-      setError("Геокодинг недоступен, укажи точку кликом по карте.");
+      setError("Геокодинг недоступен — укажи точку кликом по карте.");
     }
   }
 
@@ -164,66 +180,56 @@ export default function RouteTab({ data }: { data: Datasets }) {
 
   // ---- статистика коридора ----
   const corridor = useMemo(() => {
-    if (!route) return null;
-    const rows = filterCorridor(data.points.rows, route.geometry, bufferM);
+    if (!route || !rows) return null;
+    const d = app.dicts;
     const byHour = Array(24).fill(0);
     const byMonth = Array(12).fill(0);
     const seasonCnt = Array(4).fill(0);
-    const weathers: Record<string, number> = {};
-    const cats: Record<string, number> = {};
-    const brands: Record<string, number> = {};
+    const weathers = new Map<number, number>();
+    const cats = new Map<number, number>();
+    const brands = new Map<number, number>();
     let dead = 0, injured = 0, severe = 0;
-    const d = data.points.dicts;
     for (const r of rows) {
       byHour[r[4]]++;
       byMonth[(r[2] % 100) - 1]++;
-      seasonCnt[monthToSeason(r[2] % 100)]++;
-      if (r[8] >= 0) weathers[d.weathers[r[8]]] = (weathers[d.weathers[r[8]]] ?? 0) + 1;
-      cats[d.cats[r[6]]] = (cats[d.cats[r[6]]] ?? 0) + 1;
-      if (r[11] >= 0) brands[d.brands[r[11]]] = (brands[d.brands[r[11]]] ?? 0) + 1;
-      dead += r[12];
-      injured += r[13];
+      seasonCnt[seasonOfYm(r[2])]++;
+      weathers.set(r[8], (weathers.get(r[8]) ?? 0) + 1);
+      cats.set(r[6], (cats.get(r[6]) ?? 0) + 1);
+      brands.set(r[11], (brands.get(r[11]) ?? 0) + 1);
+      dead += r[12]; injured += r[13];
       if (r[5] >= 1) severe++;
     }
     const total = rows.length;
     const mean = total / 24 || 1;
     const hoursSorted = byHour.map((c, h) => ({ h, c, lift: c / mean })).sort((x, y) => x.lift - y.lift);
+    const top = <T,>(m: Map<T, number>, n: number, key: (k: T) => string): [string, number][] =>
+      [...m.entries()].sort((x, y) => y[1] - x[1]).slice(0, n).map(([k, v]) => [key(k), v]);
     return {
       rows, total, dead, injured,
       severeShare: total ? severe / total : 0,
       bestHours: hoursSorted.slice(0, 3),
       worstHours: hoursSorted.slice(-3).reverse(),
       byHour, byMonth, seasonCnt,
-      topWeathers: Object.entries(weathers).sort((x, y) => y[1] - x[1]).slice(0, 5),
-      topCats: Object.entries(cats).sort((x, y) => y[1] - x[1]).slice(0, 8),
-      topBrands: Object.entries(brands).sort((x, y) => y[1] - x[1]).slice(0, 10),
+      topWeathersIdx: [...weathers.entries()].sort((x, y) => y[1] - x[1]).slice(0, 5),
+      topCats: top(cats, 10, (i) => d.cats[i] ?? "—"),
+      topBrands: top(brands, 12, (i) => d.brands[i] ?? "—"),
     };
-  }, [route, bufferM, data]);
+  }, [route, bufferM, rows, app.dicts]);
 
-  // ---- советы для маршрута ----
   const routeTips = useMemo(() => {
     if (!corridor) return [];
-    const tips = [...data.tips.rules];
-    const score = (t: typeof tips[number]) => {
-      let s = 0;
-      if (t.scope === "experience" && t.when.experience_bucket === data.experience.buckets[expBucket]) s += 3;
-      if (t.scope === "weather" && corridor.topWeathers.some(([w]) => w === t.when.weather)) s += 2.5;
-      if (t.scope === "season_time" && corridor.seasonCnt.length) s += 0.5;
-      if (t.scope === "time") s += 0.5;
-      return s * t.lift;
-    };
-    return tips
-      .map((t) => ({ t, s: score(t) }))
-      .filter(({ t }) => {
-        if (t.scope === "experience") return t.when.experience_bucket === data.experience.buckets[expBucket];
+    const rules = [...app.tips.rules];
+    const scored = rules
+      .filter((t) => {
+        if (t.scope === "experience") return t.when.experience_bucket === app.experience.buckets[expBucket];
         if (t.scope === "weather")
-          return corridor.topWeathers.some(([w]) => w === t.when.weather);
-        return true;
+          return corridor.topWeathersIdx.some(([wi]) => app.dicts.weathers[wi] === t.when.weather);
+        return t.scope !== "light" && t.scope !== "road";
       })
-      .sort((x, y) => y.s - x.s)
-      .slice(0, 6)
-      .map(({ t }) => t);
-  }, [corridor, data.tips.rules, expBucket, data.experience.buckets]);
+      .sort((x, y) => y.lift - x.lift)
+      .slice(0, 6);
+    return scored;
+  }, [corridor, app.tips.rules, expBucket, app.experience.buckets, app.dicts.weathers]);
 
   const hourChartOption: echarts.EChartsOption | null = useMemo(() => {
     if (!corridor) return null;
@@ -254,11 +260,7 @@ export default function RouteTab({ data }: { data: Datasets }) {
       grid: { left: 44, right: 16, top: 20, bottom: 28 },
       xAxis: { type: "category", data: MONTHS },
       yAxis: { type: "value" },
-      series: [{
-        type: "bar",
-        data: corridor.byMonth,
-        itemStyle: { color: "#818cf8", borderRadius: [4, 4, 0, 0] },
-      }],
+      series: [{ type: "bar", data: corridor.byMonth, itemStyle: { color: "#818cf8", borderRadius: [4, 4, 0, 0] } }],
     };
   }, [corridor]);
 
@@ -269,9 +271,7 @@ export default function RouteTab({ data }: { data: Datasets }) {
       tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)" },
       legend: { bottom: 0, textStyle: { color: "#94a3b8" } },
       series: [{
-        type: "pie",
-        radius: ["40%", "66%"],
-        center: ["50%", "45%"],
+        type: "pie", radius: ["40%", "66%"], center: ["50%", "45%"],
         data: SEASONS.map((s, i) => ({ name: s, value: corridor.seasonCnt[i], itemStyle: { color: palette[i] } })),
         label: { formatter: "{d}%", color: "#94a3b8" },
       }],
@@ -284,14 +284,9 @@ export default function RouteTab({ data }: { data: Datasets }) {
       tooltip: {},
       grid: { left: 170, right: 46, top: 8, bottom: 24 },
       xAxis: { type: "value" },
-      yAxis: {
-        type: "category",
-        data: corridor.topCats.map((c) => c[0]).reverse(),
-        axisLabel: { fontSize: 11 },
-      },
+      yAxis: { type: "category", data: corridor.topCats.map((c) => c[0]).reverse().map((s) => (s.length > 30 ? s.slice(0, 29) + "…" : s)), axisLabel: { fontSize: 11 } },
       series: [{
-        type: "bar",
-        data: corridor.topCats.map((c) => c[1]).reverse(),
+        type: "bar", data: corridor.topCats.map((c) => c[1]).reverse(),
         itemStyle: { color: SEV_COLORS[1], borderRadius: [0, 6, 6, 0] },
         label: { show: true, position: "right", color: "#94a3b8" },
       }],
@@ -304,14 +299,9 @@ export default function RouteTab({ data }: { data: Datasets }) {
       tooltip: {},
       grid: { left: 150, right: 46, top: 8, bottom: 24 },
       xAxis: { type: "value" },
-      yAxis: {
-        type: "category",
-        data: corridor.topBrands.map((c) => c[0]).reverse(),
-        axisLabel: { fontSize: 11 },
-      },
+      yAxis: { type: "category", data: corridor.topBrands.map((c) => c[0]).reverse(), axisLabel: { fontSize: 11 } },
       series: [{
-        type: "bar",
-        data: corridor.topBrands.map((c) => c[1]).reverse(),
+        type: "bar", data: corridor.topBrands.map((c) => c[1]).reverse(),
         itemStyle: { color: ACCENT, borderRadius: [0, 6, 6, 0] },
         label: { show: true, position: "right", color: "#94a3b8" },
       }],
@@ -324,22 +314,11 @@ export default function RouteTab({ data }: { data: Datasets }) {
   return (
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-[380px_1fr]">
-        {/* Панель выбора маршрута */}
-        <Card title="Маршрут А → Б" subtitle="Пресеты, поиск адреса или клик по карте">
+        <Card title="Маршрут А → Б по всей России" subtitle="Пресеты, поиск адреса или клик по карте">
           <div className="space-y-3">
-            <select
-              className={inputCls}
-              defaultValue=""
-              onChange={(e) => {
-                if (e.target.value !== "") applyPreset(Number(e.target.value));
-              }}
-            >
-              <option value="" disabled>
-                Готовые маршруты…
-              </option>
-              {PRESETS.map((p, i) => (
-                <option key={p.name} value={i}>{p.name}</option>
-              ))}
+            <select className={inputCls} defaultValue="" onChange={(e) => { if (e.target.value !== "") applyPreset(Number(e.target.value)); }}>
+              <option value="" disabled>Готовые маршруты…</option>
+              {PRESETS.map((p, i) => (<option key={p.name} value={i}>{p.name}</option>))}
             </select>
 
             {(["A", "B"] as const).map((which) => (
@@ -347,27 +326,19 @@ export default function RouteTab({ data }: { data: Datasets }) {
                 <div className="flex gap-2">
                   <input
                     className={inputCls}
-                    placeholder={which === "A" ? "Точка А: адрес…" : "Точка Б: адрес…"}
+                    placeholder={which === "A" ? "Точка А: город, адрес…" : "Точка Б: город, адрес…"}
                     value={which === "A" ? queryA : queryB}
                     onChange={(e) => (which === "A" ? setQueryA : setQueryB)(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && void doGeocode(which)}
                   />
-                  <button
-                    onClick={() => void doGeocode(which)}
-                    className="rounded-lg bg-slate-700 px-3 text-sm hover:bg-slate-600"
-                  >
-                    🔍
-                  </button>
+                  <button onClick={() => void doGeocode(which)} className="rounded-lg bg-slate-700 px-3 text-sm hover:bg-slate-600">🔍</button>
                 </div>
                 {results?.for === which && (
-                  <ul className="mt-1 space-y-1 rounded-lg border border-slate-700 bg-slate-800 p-1 text-xs">
+                  <ul className="mt-1 max-h-44 space-y-1 overflow-auto rounded-lg border border-slate-700 bg-slate-800 p-1 text-xs">
                     {results.items.length === 0 && <li className="px-2 py-1 text-slate-400">Ничего не найдено</li>}
                     {results.items.map((r, i) => (
                       <li key={i}>
-                        <button
-                          className="w-full rounded px-2 py-1 text-left hover:bg-slate-700"
-                          onClick={() => chooseResult(r, which)}
-                        >
+                        <button className="w-full rounded px-2 py-1 text-left hover:bg-slate-700" onClick={() => chooseResult(r, which)}>
                           {r.name}
                         </button>
                       </li>
@@ -380,17 +351,13 @@ export default function RouteTab({ data }: { data: Datasets }) {
             <div className="flex gap-2">
               <button
                 onClick={() => setPickMode(pickMode === "A" ? null : "A")}
-                className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${
-                  pickMode === "A" ? "bg-sky-500 text-white" : "bg-slate-700 hover:bg-slate-600"
-                }`}
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${pickMode === "A" ? "bg-sky-500 text-white" : "bg-slate-700 hover:bg-slate-600"}`}
               >
                 📍 A {a ? "✓" : ""}
               </button>
               <button
                 onClick={() => setPickMode(pickMode === "B" ? null : "B")}
-                className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${
-                  pickMode === "B" ? "bg-red-500 text-white" : "bg-slate-700 hover:bg-slate-600"
-                }`}
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${pickMode === "B" ? "bg-red-500 text-white" : "bg-slate-700 hover:bg-slate-600"}`}
               >
                 📍 Б {b ? "✓" : ""}
               </button>
@@ -399,52 +366,54 @@ export default function RouteTab({ data }: { data: Datasets }) {
             <button
               disabled={!a || !b || loading}
               onClick={() => a && b && void loadRoute(a, b)}
-              className="w-full rounded-lg bg-gradient-to-r from-orange-500 to-red-500 px-4 py-2.5 font-semibold text-white disabled:opacity-40"
+              className="glow-ring w-full rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-4 py-2.5 font-semibold text-white disabled:opacity-40"
             >
-              {loading ? "Строим маршрут…" : "Построить статистику маршрута"}
+              {loading ? "Собираем статистику вдоль маршрута…" : "Построить статистику маршрута"}
             </button>
 
             {error && <p className="text-xs text-red-400">{error}</p>}
-            {pickMode && (
-              <p className="text-xs text-sky-300">
-                Кликни по карте, чтобы поставить точку {pickMode}.
+            {pickMode && <p className="text-xs text-sky-300">Кликни по карте, чтобы поставить точку {pickMode}.</p>}
+            {loading && regionsLoaded.length > 0 && (
+              <p className="text-[11px] leading-snug text-slate-500">
+                Загружены данные: {regionsLoaded.join(", ")}…
               </p>
             )}
 
             <label className="block text-xs text-slate-400">
               Ширина коридора: <b className="text-slate-200">{bufferM} м</b>
-              <input
-                type="range"
-                min={150}
-                max={1500}
-                step={50}
-                value={bufferM}
+              <input type="range" min={150} max={1500} step={50} value={bufferM}
                 onChange={(e) => setBufferM(Number(e.target.value))}
-                className="mt-1 w-full accent-orange-500"
-              />
+                className="mt-1 w-full accent-orange-500" />
             </label>
           </div>
         </Card>
 
-        {/* Карта маршрута */}
-        <Card className="!p-0 overflow-hidden" >
+        <Card className="overflow-hidden !p-0">
           <div ref={mapEl} className="h-[420px] w-full lg:h-full lg:min-h-[520px]" />
         </Card>
       </div>
 
-      {route && corridor && (
+      {route && (
+        <Card title="Статистика коридора">
+          <p className="text-sm text-slate-400">
+            {loading
+              ? "Фильтруем ДТП в коридоре и загружаем регионы вдоль маршрута…"
+              : rows
+                ? `В коридоре ±${bufferM} м найдено ${rows.length.toLocaleString("ru-RU")} ДТП. Ниже — подробности.`
+                : "Ожидание…"}
+          </p>
+        </Card>
+      )}
+
+      {route && corridor && !loading && (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <Card className="col-span-2 !py-3">
               <div className="text-xs uppercase tracking-wider text-slate-400">Маршрут</div>
-              <div className="mt-0.5 truncate font-semibold text-white">
-                {a?.label ?? "A"} → {b?.label ?? "Б"}
-              </div>
-              <div className="mt-0.5 text-xs text-slate-400">
-                {route.distanceKm.toFixed(1)} км · ~{Math.round(route.durationMin)} мин · коридор ±{bufferM} м
-              </div>
+              <div className="mt-0.5 truncate font-semibold text-white">{a?.label ?? "A"} → {b?.label ?? "Б"}</div>
+              <div className="mt-0.5 text-xs text-slate-400">{route.distanceKm.toFixed(1)} км · ~{Math.round(route.durationMin)} мин · коридор ±{bufferM} м</div>
             </Card>
-            <Card className="!py-3 col-span-1">
+            <Card className="!py-3">
               <div className="text-xs uppercase tracking-wider text-slate-400">ДТП в коридоре</div>
               <div className="mt-0.5 text-2xl font-bold text-orange-300">{corridor.total.toLocaleString("ru-RU")}</div>
             </Card>
@@ -459,18 +428,14 @@ export default function RouteTab({ data }: { data: Datasets }) {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-3">
-            <Card title="Когда выезжать?" subtitle="Зелёный — самые спокойные часы, красный — опасные">
+            <Card title="Когда выезжать?" subtitle="Зелёный — спокойные часы, красный — опасные">
               <EChart option={hourChartOption!} height={260} />
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {corridor.bestHours.map((x) => (
-                  <Badge key={"b" + x.h} tone="green">
-                    ✅ {String(x.h).padStart(2, "0")}:00 ×{x.lift.toFixed(2)}
-                  </Badge>
+                  <Badge key={"b" + x.h} tone="green">✅ {String(x.h).padStart(2, "0")}:00 ×{x.lift.toFixed(2)}</Badge>
                 ))}
                 {corridor.worstHours.map((x) => (
-                  <Badge key={"w" + x.h} tone="red">
-                    ⚠️ {String(x.h).padStart(2, "0")}:00 ×{x.lift.toFixed(2)}
-                  </Badge>
+                  <Badge key={"w" + x.h} tone="red">⚠️ {String(x.h).padStart(2, "0")}:00 ×{x.lift.toFixed(2)}</Badge>
                 ))}
               </div>
             </Card>
@@ -495,21 +460,11 @@ export default function RouteTab({ data }: { data: Datasets }) {
             </Card>
           </div>
 
-          {/* Советник */}
-          <Card
-            title="Персональные рекомендации для этого маршрута"
-            subtitle="Правила построены по относительным рискам всей выборки региона"
-          >
-            <div className="mb-3 flex flex-wrap items-center gap-3 text-sm">
+          <Card title="Персональные рекомендации для этого маршрута" subtitle="Правила рассчитаны по всей стране · совпадение с погодой и составом потока на маршруте">
+            <div className="mb-3 flex items-center gap-3 text-sm">
               <span className="text-slate-400">Твой стаж:</span>
-              <select
-                value={expBucket}
-                onChange={(e) => setExpBucket(Number(e.target.value))}
-                className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs"
-              >
-                {data.experience.buckets.map((bk, i) => (
-                  <option key={bk} value={i}>{bk} лет</option>
-                ))}
+              <select value={expBucket} onChange={(e) => setExpBucket(Number(e.target.value))} className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs">
+                {app.experience.buckets.map((bk, i) => (<option key={bk} value={i}>{bk} лет</option>))}
               </select>
             </div>
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -517,18 +472,9 @@ export default function RouteTab({ data }: { data: Datasets }) {
                 <div key={t.id} className="rounded-xl border border-slate-700/70 bg-slate-800/40 p-3.5">
                   <div className="flex items-start justify-between gap-2">
                     <h4 className="text-sm font-semibold text-white">{t.title}</h4>
-                    <Badge tone={t.lift >= 1.3 ? "red" : t.scope === "experience" ? "blue" : "orange"}>
-                      ×{t.lift.toFixed(2)}
-                    </Badge>
+                    <Badge tone={t.lift >= 1.3 ? "red" : t.scope === "experience" ? "blue" : "orange"}>×{t.lift.toFixed(2)}</Badge>
                   </div>
                   <p className="mt-1.5 text-xs leading-relaxed text-slate-300">{t.text}</p>
-                  <div className="mt-2 flex gap-1.5">
-                    {t.tags.map((tag) => (
-                      <span key={tag} className="rounded bg-slate-700/60 px-1.5 py-0.5 text-[10px] text-slate-300">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
                 </div>
               ))}
             </div>

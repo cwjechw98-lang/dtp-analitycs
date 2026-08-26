@@ -1,22 +1,40 @@
-// Типы данных, генерируемых pipeline/build_*.py
+// Типы данных v2: вся Россия + регионы
+
+export interface MetaRegion {
+  slug: string;
+  name: string;
+  total: number;
+  date_min: string | null;
+  date_max: string | null;
+  bbox: [number, number, number, number]; // [latMin, latMax, lonMin, lonMax]
+}
 
 export interface Meta {
   schema_version: number;
   generated_at_utc: string;
-  source_url: string;
-  opendata_page: string;
-  region: string;
+  source_page: string;
+  coverage: string;
   total_accidents: number;
-  skipped_records: number;
-  date_min: string;
-  date_max: string;
-  bbox: { lat_min: number; lat_max: number; lon_min: number; lon_max: number };
-  counts_by_year: Record<string, number>;
+  date_min: string | null;
+  date_max: string | null;
+  regions_processed: number;
+  regions: MetaRegion[];
   totals: { dead: number; injured: number };
 }
 
-export interface Overview {
-  by_year: { year: number; accidents: number; dead: number; injured: number }[];
+export interface Dictionaries {
+  cats: string[];
+  sevs: string[];
+  lights: string[];
+  weathers: string[];
+  roads: string[];
+  brands: string[];
+}
+
+export interface YearRow { year: number; accidents: number; dead: number; injured: number }
+
+export interface OverviewAgg {
+  by_year: YearRow[];
   severity_totals: [number, number, number];
   categories: [string, number][];
   lights: [string, number][];
@@ -24,22 +42,22 @@ export interface Overview {
   roads: [string, number][];
 }
 
-export interface Temporal {
+export interface TemporalAgg {
   weekdays: string[];
   tods: string[];
   seasons: string[];
-  hour_weekday: number[][]; // [7][24]
-  by_hour: number[]; // [24]
-  hour_severity: number[][]; // [24][3]
-  by_month: number[]; // [12]
+  hour_weekday: number[][];
+  by_hour: number[];
+  hour_severity: number[][];
+  by_month: number[];
   years: number[];
-  month_year: number[][]; // [len(years)][12]
+  month_year: number[][];
   season_counts: Record<string, number>;
-  tod_severity: number[][]; // [4][3]
+  tod_severity: number[][];
 }
 
-export interface Vehicles {
-  top_brands: { name: string; count: number; severe_share: number }[];
+export interface VehiclesAgg {
+  top_brands: { name: string; count: number; severe_share?: number }[];
   top_models: { brand: string; model: string; count: number }[];
   vehicle_categories: [string, number][];
   age_labels: string[];
@@ -47,42 +65,53 @@ export interface Vehicles {
 }
 
 export interface ExperienceStat {
-  bucket: string;
-  drivers: number;
-  accidents: number;
-  severe_share: number;
-  night_share: number;
-  avg_injured: number;
+  bucket: string; drivers: number; accidents: number;
+  severe_share: number; night_share: number; avg_injured: number;
 }
 
-export interface Experience {
+export interface ExperienceAgg {
   buckets: string[];
   baseline_severe_share: number;
   stats: ExperienceStat[];
-  bucket_season: number[][]; // [6][4]
-  bucket_tod: number[][]; // [6][4]
 }
 
-/** Строка points.json — компактный массив:
- * [lat, lon, yyyymm, dow(0=Пн), hour, sevIdx, catIdx, lightIdx, weatherIdx,
- *  roadIdx, expBucketIdx(-1 нет данных), brandIdx(-1 нет ТС), dead, injured] */
+export interface CulpritBrand { brand: string; culprit: number; victim: number; total: number; aggr: number }
+
+export interface CulpritsAgg {
+  methodology: string;
+  totals: { accidents: number; with_vehicle_culprit: number; pedestrian_culprit: number };
+  violations_top: [string, number][];
+  brands: CulpritBrand[];
+}
+
+export interface National {
+  overview: OverviewAgg;
+  temporal: TemporalAgg;
+  vehicles: VehiclesAgg;
+  experience: ExperienceAgg;
+  culprits: CulpritsAgg;
+}
+
+/** Геохэш-ячейка: [hash, легкие, тяжёлые, с погибшими, dead, injured] */
+export type HeatCell = [string, number, number, number, number, number];
+
+/** Строка регионального файла (16 значений):
+ * [lat, lon, ym, dow(0=Пн), hour, sevIdx, catIdx, lightIdx, weatherIdx, roadIdx,
+ *  expBucketIdx, firstVehBrandIdx, dead, inj, culpritBrandIdx, vehCount] */
 export type PointRow = number[];
 
-export interface Points {
-  dicts: {
-    cats: string[];
-    sevs: string[];
-    lights: string[];
-    weathers: string[];
-    roads: string[];
-    brands: string[];
-  };
+export interface RegionFile {
+  slug: string;
+  total: number;
+  date_min: string | null;
+  date_max: string | null;
+  bbox: [number, number, number, number];
   rows: PointRow[];
 }
 
 export interface TipRule {
   id: string;
-  scope: "time" | "season_time" | "weather" | "light" | "road" | "experience" | "route";
+  scope: "time" | "season_time" | "weather" | "light" | "road" | "experience";
   when: Record<string, unknown>;
   lift: number;
   n: number;

@@ -84,6 +84,27 @@ export interface CulpritsAgg {
   brands: CulpritBrand[];
 }
 
+/** Строка модели внутри марки: [модель, всего ДТП, из них виновник] */
+export type BrandModelRow = [string, number, number];
+
+export interface BrandDetail {
+  /** ДТП с участием марки (по определённой тяжести) */
+  total: number;
+  /** [лёгкие, тяжёлые, с погибшими] */
+  sev: [number, number, number];
+  /** водители этой марки с нарушением ПДД */
+  culprit: number;
+  /** водители этой марки без нарушений */
+  victim: number;
+  /** топ-нарушения водителей марки */
+  violations: [string, number][];
+}
+
+export interface BrandsFile {
+  generated_at_utc: string;
+  brands: Record<string, BrandDetail>;
+}
+
 export interface National {
   overview: OverviewAgg;
   temporal: TemporalAgg;

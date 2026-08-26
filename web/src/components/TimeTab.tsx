@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useApp } from "../state/AppState";
-import { ACCENT, SEV_COLORS } from "../lib/data";
+import { useTheme } from "../state/ThemeContext";
+import { SEV_COLORS } from "../lib/data";
 import { deriveRegion } from "../lib/derive";
 import EChart from "./EChart";
 import { Badge, Card } from "./ui";
@@ -10,6 +11,7 @@ const SEV_NAMES = ["Лёгкие", "Тяжёлые", "С погибшими"];
 
 export default function TimeTab() {
   const app = useApp();
+  const theme = useTheme();
   const isRu = app.scope === "ALL";
 
   const temporal = useMemo(() => {
@@ -46,7 +48,7 @@ export default function TimeTab() {
       yAxis: { type: "category", data: temporal.weekdays, axisLabel: { color: "#94a3b8" } },
       visualMap: {
         min: 0, max, calculable: false, orient: "horizontal", left: "center", bottom: 0,
-        inRange: { color: ["#0f1d38", "#1e3a5f", "#c2571b", ACCENT] },
+        inRange: { color: ["#0f1d38", "#1e3a5f", "#c2571b", theme.accentMain] },
         textStyle: { color: "#94a3b8" },
       },
       series: [{ type: "heatmap", data: values, label: { show: false } }],
@@ -93,7 +95,7 @@ export default function TimeTab() {
         {
           name: "Среднее за период", type: "line", smooth: true,
           data: temporal.by_month.map((m) => Math.round(m / temporal.years.length)),
-          lineStyle: { width: 3, color: ACCENT }, itemStyle: { color: ACCENT },
+          lineStyle: { width: 3, color: theme.accentMain }, itemStyle: { color: theme.accentMain },
         },
       ],
     };

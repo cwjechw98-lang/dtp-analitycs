@@ -3,6 +3,7 @@ import { useState } from "react";
 import { humanDate } from "./lib/data";
 import { nf } from "./lib/format";
 import { AppStateProvider, useApp, useAppState } from "./state/AppState";
+import { ACCENTS, ThemeProvider, useTheme, type AccentId } from "./state/ThemeContext";
 import AuroraBackground from "./components/AuroraBackground";
 import OverviewTab from "./components/OverviewTab";
 import TimeTab from "./components/TimeTab";
@@ -45,8 +46,62 @@ function RegionSelector() {
   );
 }
 
+function ThemeSettings() {
+  const { mode, setMode, accent, setAccent } = useTheme();
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        title="Тема и цветовая схема"
+        className="rounded-xl border border-slate-700/80 bg-slate-900/70 px-2.5 py-2 text-sm transition hover:border-slate-500"
+      >
+        🎨
+      </button>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass absolute right-0 top-11 z-[1000] w-56 rounded-2xl border p-3 shadow-xl"
+        >
+          <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Тема</div>
+          <div className="mb-3 grid grid-cols-2 gap-1.5">
+            {(["dark", "light"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={`rounded-lg px-2 py-1.5 text-xs font-medium transition ${
+                  mode === m ? "text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                }`}
+                style={mode === m ? { backgroundColor: "var(--accent)" } : undefined}
+              >
+                {m === "dark" ? "🌙 Тёмная" : "☀️ Светлая"}
+              </button>
+            ))}
+          </div>
+          <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Цветовая схема</div>
+          <div className="flex gap-2">
+            {(Object.keys(ACCENTS) as AccentId[]).map((a) => (
+              <button
+                key={a}
+                onClick={() => setAccent(a)}
+                title={ACCENTS[a].name}
+                className={`h-7 w-7 rounded-full transition ${
+                  accent === a ? "ring-2 ring-white ring-offset-2 ring-offset-slate-900" : "opacity-70 hover:opacity-100"
+                }`}
+                style={{ background: `linear-gradient(135deg, ${ACCENTS[a].main}, ${ACCENTS[a].soft})` }}
+              />
+            ))}
+          </div>
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
 function Shell() {
   const app = useApp();
+  const theme = useTheme();
   const [tab, setTab] = useState<TabId>("overview");
 
   const regionName =
@@ -63,7 +118,7 @@ function Shell() {
     <div className="min-h-screen pb-14">
       <AuroraBackground />
 
-      <header className="sticky top-0 z-[900] border-b border-slate-800/60 bg-[#070b14]/75 backdrop-blur-xl">
+      <header className="app-header sticky top-0 z-[900] border-b backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-6">
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
             <h1 className="text-lg font-extrabold tracking-tight sm:text-xl">
@@ -74,11 +129,12 @@ function Shell() {
               {regionName} · {nf.format(total)} происшествий{period ? ` · ${period}` : ""}
             </p>
           </motion.div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             {app.regionLoading && (
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-700 border-t-orange-500" />
             )}
             <RegionSelector />
+            <ThemeSettings />
           </div>
         </div>
         <nav className="mx-auto max-w-7xl overflow-x-auto px-4 sm:px-6">
@@ -94,7 +150,14 @@ function Shell() {
                 {tab === t.id && (
                   <motion.span
                     layoutId="tab-pill"
-                    className="absolute inset-0 rounded-t-xl bg-gradient-to-b from-orange-500/25 to-transparent ring-1 ring-inset ring-orange-500/30"
+                    className="absolute inset-0 rounded-t-xl ring-1 ring-inset"
+                    style={{
+                      background:
+                        "linear-gradient(to bottom, color-mix(in srgb, var(--accent) 26%, transparent), transparent)",
+                      boxShadow: "inset 0 1px 0 color-mix(in srgb, var(--accent) 45%, transparent)",
+                      // @ts-expect-error css custom prop
+                      "--tw-ring-color": "color-mix(in srgb, var(--accent) 35%, transparent)",
+                    }}
                     transition={{ type: "spring", stiffness: 420, damping: 34 }}
                   />
                 )}
@@ -144,9 +207,11 @@ function Shell() {
 
 export default function App() {
   return (
-    <AppStateProvider>
-      <Gate />
-    </AppStateProvider>
+    <ThemeProvider>
+      <AppStateProvider>
+        <Gate />
+      </AppStateProvider>
+    </ThemeProvider>
   );
 }
 

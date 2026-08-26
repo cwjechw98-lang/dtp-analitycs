@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { Dictionaries, HeatCell, Meta, National, PointRow, RegionFile, Tips } from "../lib/types";
+import type { BrandsFile, Dictionaries, HeatCell, Meta, National, PointRow, RegionFile, Tips } from "../lib/types";
 
 const BASE = `${import.meta.env.BASE_URL}data/`;
 
@@ -11,6 +11,7 @@ async function getJson<T>(file: string): Promise<T> {
 
 const regionCache = new Map<string, Promise<RegionFile>>();
 let heatCache: Promise<HeatCell[]> | null = null;
+let brandsCache: Promise<BrandsFile> | null = null;
 
 export interface AppState {
   ready: boolean;
@@ -28,6 +29,7 @@ export interface AppState {
   regionLoading: boolean;
   loadRegion: (slug: string) => Promise<RegionFile>;
   loadHeatCells: () => Promise<HeatCell[]>;
+  loadBrands: () => Promise<BrandsFile>;
 }
 
 const Ctx = createContext<AppState | null>(null);
@@ -97,6 +99,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     return heatCache;
   };
 
+  const loadBrands = (): Promise<BrandsFile> => {
+    brandsCache ??= getJson<BrandsFile>("brands.json");
+    return brandsCache;
+  };
+
   const value: AppState | null =
     core == null
       ? null
@@ -111,6 +118,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           regionLoading,
           loadRegion,
           loadHeatCells,
+          loadBrands,
         };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

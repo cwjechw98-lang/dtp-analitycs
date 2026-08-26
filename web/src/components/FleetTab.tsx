@@ -1,69 +1,527 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { useApp } from "../state/AppState";
-import { ACCENT, SEV_COLORS } from "../lib/data";
-import { deriveRegion, deriveRegionCulprits } from "../lib/derive";
+import { useTheme } from "../state/ThemeContext";
+import type { BrandsFile, CulpritBrand } from "../lib/types";
 import EChart from "./EChart";
 import { Badge, Card } from "./ui";
 import type * as echarts from "echarts";
 
+/** Популярные русские названия марок → написание в данных */
+const ALIASES: Record<string, string> = {
+  БМВ: "BMW", МЕРСЕДЕС: "MERCEDES", МЕРС: "MERCEDES", ФОЛЬКСВАГЕН: "VOLKSWAGEN",
+  ТОЙОТА: "TOYOTA", ТАЁТА: "TOYOTA", НИССАН: "NISSAN", ХЕНДАЙ: "HYUNDAI",
+  ХЁНДЕ: "HYUNDAI", ШКОДА: "SKODA", АУДИ: "AUDI", ЛАДА: "ВАЗ",
+  ЖИГУЛИ: "ВАЗ", МАЗДА: "MAZDA", МИЦУБИСИ: "MITSUBISHI", СУЗУКИ: "SUZUKI",
+  СУБАРУ: "SUBARU", РЕНО: "RENAULT", ПЕЖО: "PEUGEOT", СИТРОЕН: "CITROEN",
+  ФОРД: "FORD", ШЕВРОЛЕ: "CHEVROLET", ДЭУ: "DAEWOO", ОПЕЛЬ: "OPEL",
+  КИА: "KIA", КАМАЗ: "КАМАЗ",
+};
+
 const SEV_NAMES = ["Лёгкие", "Тяжёлые", "С погибшими"];
+const SEV_COLORS = ["#38bdf8", "#f59e0b", "#ef4444"];
+
+type SortKey = "total" | "aggr" | "culpritShare";
 
 export default function FleetTab() {
   const app = useApp();
-  const isRu = app.scope === "ALL";
+  const theme = useTheme();
+  const [brandsFile, setBrandsFile] = useState<BrandsFile | null>(null);
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [sortKey, setSortKey] = useState<SortKey>("total");
 
+  useEffect(() => {
+    let alive = true;
+    app.loadBrands().then((f) => alive && setBrandsFile(f)).catch(() => {});
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Национальная таблица виновник/жертва — база для рейтинга и сравнений */
+  const nationalRows = useMemo(() => app.national.culprits.brands, [app.national]);
+
+  const baselineShare = useMemo(() => {
+    let c = 0, v = 0;
+    for (const b of nationalRows) {
+      c += b.culprit;
+      v += b.victim;
+    }
+    return c + v > 0 ? c / (c + v) : 0.5;
+  }, [nationalRows]);
+
+  const toggleBrand = (name: string) => {
+    setSelected((s) =>
+      s.includes(name) ? s.filter((x) => x !== name) : s.length >= 3 ? [...s.slice(1), name] : [...s, name],
+    );
+  };
+
+  if (!brandsFile) {
+    return (
+      <div className="flex h-64 items-center justify-center text-sm text-slate-400">
+        Загружаем детали по маркам…
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card
+        title="🔍 Эксплорер автопрома"
+        subtitle="Живой инструмент: ищи любую марку, проваливайся в детали, сравнивай до трёх брендов друг с другом"
+      >
+        <div className="space-y-3">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Введите марку: BMW, БМВ, Toyota, ВАЗ, Audi…"
+            className="w-full rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-orange-500/60 focus:ring-2 focus:ring-orange-500/20"
+          />
+          {selected.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-slate-500">Сравнение:</span>
+              {selected.map((name) => (
+                <button
+                  key={name}
+                  onClick={() => toggleBrand(name)}
+                  className="group flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1"
+                  style={{
+                    backgroundColor: "color-mix(in srgb, var(--accent) 16%, transparent)",
+                    color: "var(--accent)",
+                    // @ts-expect-error css var
+                    "--tw-ring-color": "color-mix(in srgb, var(--accent) 45%, transparent)",
+                  }}
+                >
+                  {name}
+                  <span className="opacity-50 group-hover:opacity-100">✕</span>
+                </button>
+              ))}
+              <button onClick={() => setSelected([])} className="text-xs text-slate-500 underline decoration-dotted hover:text-slate-300">
+                очистить
+              </button>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* ---- результаты поиска / выбранные марки ---- */}
+      <SearchResults
+        query={query}
+        brandsFile={brandsFile}
+        nationalRows={nationalRows}
+        baselineShare={baselineShare}
+        selected={selected}
+        onToggle={toggleBrand}
+        accentMain={theme.accentMain}
+      />
+
+      {selected.length === 0 && query.trim().length === 0 && (
+        <>
+          <Card title="Рейтинг марок" subtitle={`Кликни на марку, чтобы добавить к сравнению · сортировка: ${sortTitle(sortKey)} · базовая доля виновников ${Math.round(baselineShare * 100)}%`}>
+            <RankingTable
+              rows={nationalRows}
+              sortKey={sortKey}
+              setSortKey={setSortKey}
+              selected={selected}
+              onToggle={toggleBrand}
+            />
+          </Card>
+        </>
+      )}
+
+      {selected.length >= 2 && (
+        <CompareChart selected={selected} rows={nationalRows} brandsFile={brandsFile} />
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card title="Марки автомобилей в ДТП" subtitle={app.scope === "ALL" ? "Топ-25 марок первого ТС" : "Топ марок региона"}>
+          <TopBrandsChart accent={theme.accentMain} />
+        </Card>
+        <Card title="Стаж вождения и тяжесть ДТП" subtitle="Национальные данные">
+          <ExperienceCharts />
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function sortTitle(k: SortKey): string {
+  return k === "total" ? "число ДТП" : k === "culpritShare" ? "доля виновника" : "агрессивность";
+}
+
+/* ============================ поиск ============================ */
+function SearchResults({
+  query,
+  brandsFile,
+  nationalRows,
+  baselineShare,
+  selected,
+  onToggle,
+  accentMain,
+}: {
+  query: string;
+  brandsFile: BrandsFile;
+  nationalRows: CulpritBrand[];
+  baselineShare: number;
+  selected: string[];
+  onToggle: (n: string) => void;
+  accentMain: string;
+}) {
+  const q = query.trim().toUpperCase();
+  if (!q) return null;
+
+  const aliasTarget = ALIASES[q];
+  const natByName = new Map(nationalRows.map((b) => [b.brand, b]));
+  const matches = Object.keys(brandsFile.brands)
+    .filter((name) => name.toUpperCase().includes(q) || (aliasTarget && name.toUpperCase() === aliasTarget))
+    .sort((a, b) => (natByName.get(b)?.total ?? 0) - (natByName.get(a)?.total ?? 0));
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {matches.length === 0 && (
+        <p className="col-span-full rounded-xl border border-slate-800 bg-slate-900/40 p-6 text-center text-sm text-slate-500">
+          Марка «{query}» не найдена. Попробуй латиницу: BMW, TOYOTA, KIA…
+        </p>
+      )}
+      {matches.slice(0, 6).map((name) => (
+        <BrandCard
+          key={name}
+          name={name}
+          detail={brandsFile.brands[name]}
+          nationalRow={natByName.get(name)}
+          baselineShare={baselineShare}
+          isSelected={selected.includes(name)}
+          onToggle={() => onToggle(name)}
+          accentMain={accentMain}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ============================ карточка марки ============================ */
+function BrandCard({
+  name,
+  detail,
+  nationalRow,
+  baselineShare,
+  isSelected,
+  onToggle,
+  accentMain,
+}: {
+  name: string;
+  detail: { total: number; sev: [number, number, number]; culprit: number; victim: number; violations: [string, number][] };
+  nationalRow?: CulpritBrand;
+  baselineShare: number;
+  isSelected: boolean;
+  onToggle: () => void;
+  accentMain: string;
+}) {
+  const culprit = nationalRow?.culprit ?? detail.culprit;
+  const victim = nationalRow?.victim ?? detail.victim;
+  const share = culprit + victim > 0 ? culprit / (culprit + victim) : 0.5;
+  const ratio = baselineShare > 0 ? share / baselineShare : 1;
+  const verdict =
+    ratio >= 1.25
+      ? { text: `чаще виновник в ${ratio.toFixed(2)}× к среднему`, tone: "red" as const }
+      : ratio <= 0.85
+        ? { text: `реже виновник — ×${ratio.toFixed(2)} к среднему`, tone: "green" as const }
+        : { text: `на уровне среднего (×${ratio.toFixed(2)})`, tone: "slate" as const };
+  const totalSev = detail.sev[0] + detail.sev[1] + detail.sev[2];
+
+  return (
+    <motion.div layout>
+      <Card
+        className={`h-full ${isSelected ? "glow-ring" : ""}`}
+        title={
+          <span className="flex items-center gap-2">
+            🚘 {name}
+            <Badge tone={verdict.tone}>{verdict.text}</Badge>
+          </span>
+        }
+        subtitle={`${(detail.total).toLocaleString("ru-RU")} записей с этой маркой`}
+      >
+        <div className="mb-3 grid grid-cols-3 gap-2 text-center text-xs">
+          <div className="rounded-lg bg-red-500/10 p-2">
+            <div className="text-lg font-bold text-red-300">{culprit.toLocaleString("ru-RU")}</div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-500">виновник</div>
+          </div>
+          <div className="rounded-lg bg-sky-500/10 p-2">
+            <div className="text-lg font-bold text-sky-300">{victim.toLocaleString("ru-RU")}</div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-500">жертва</div>
+          </div>
+          <div className="rounded-lg p-2" style={{ backgroundColor: `color-mix(in srgb, ${accentMain} 12%, transparent)` }}>
+            <div className="text-lg font-bold" style={{ color: accentMain }}>{ratio.toFixed(2)}×</div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-500">индекс агрессии</div>
+          </div>
+        </div>
+
+        <SevDonut sev={detail.sev} total={totalSev} />
+
+        {detail.violations.length > 0 && (
+          <div className="mt-3 space-y-1">
+            <div className="text-[11px] uppercase tracking-wider text-slate-500">Топ-нарушения водителей</div>
+            {detail.violations.slice(0, 3).map(([t, c]) => (
+              <div key={t} className="flex items-baseline justify-between gap-2 rounded-md bg-slate-800/40 px-2 py-1 text-[11px]">
+                <span className="leading-snug text-slate-300">{t}</span>
+                <span className="shrink-0 tabular-nums text-slate-500">{c.toLocaleString("ru-RU")}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button
+          onClick={onToggle}
+          className={`mt-3 w-full rounded-lg px-3 py-2 text-xs font-medium transition ${
+            isSelected ? "text-white" : "bg-slate-800 text-slate-200 hover:bg-slate-700"
+          }`}
+          style={isSelected ? { backgroundColor: accentMain } : undefined}
+        >
+          {isSelected ? "✓ в сравнении" : "+ добавить к сравнению"}
+        </button>
+      </Card>
+    </motion.div>
+  );
+}
+
+function SevDonut({ sev, total }: { sev: [number, number, number]; total: number }) {
+  const option: echarts.EChartsOption = useMemo(
+    () => ({
+      tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)" },
+      legend: { bottom: 0, left: "center", textStyle: { color: "#94a3b8", fontSize: 10 }, itemWidth: 10, itemHeight: 10 },
+      series: [{
+        type: "pie", radius: ["48%", "70%"], center: ["50%", "42%"],
+        label: { show: false },
+        data: SEV_NAMES.map((n, i) => ({ name: n, value: sev[i], itemStyle: { color: SEV_COLORS[i] } })),
+      }],
+    }),
+    [sev],
+  );
+  return (
+    <div className="relative">
+      <EChart option={option} height={150} />
+      <div className="pointer-events-none absolute inset-x-0 top-[26%] text-center">
+        <div className="text-xl font-bold text-white tabular-nums">{total.toLocaleString("ru-RU")}</div>
+        <div className="text-[9px] uppercase tracking-widest text-slate-500">дтп</div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ рейтинг ============================ */
+function RankingTable({
+  rows,
+  sortKey,
+  setSortKey,
+  selected,
+  onToggle,
+}: {
+  rows: CulpritBrand[];
+  sortKey: SortKey;
+  setSortKey: (k: SortKey) => void;
+  selected: string[];
+  onToggle: (n: string) => void;
+}) {
+  const sorted = useMemo(() => {
+    const arr = [...rows];
+    if (sortKey === "total") arr.sort((a, b) => b.total - a.total);
+    if (sortKey === "aggr") arr.sort((a, b) => b.aggr - a.aggr);
+    if (sortKey === "culpritShare")
+      arr.sort((a, b) => b.culprit / (b.culprit + b.victim) - a.culprit / (a.culprit + a.victim));
+    return arr.slice(0, 20);
+  }, [rows, sortKey]);
+
+  const th = (key: SortKey, label: string) => (
+    <th
+      onClick={() => setSortKey(key)}
+      className={`cursor-pointer select-none px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wide transition ${
+        sortKey === key ? "text-orange-400" : "text-slate-500 hover:text-slate-300"
+      }`}
+    >
+      {label} {sortKey === key ? "▾" : ""}
+    </th>
+  );
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[520px] text-sm">
+        <thead>
+          <tr className="border-b border-slate-800 text-left">
+            <th className="px-2 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">#</th>
+            <th className="px-2 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Марка</th>
+            {th("total", "ДТП")}
+            <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">Вин/Жерт</th>
+            {th("culpritShare", "% вины")}
+            {th("aggr", "Агрессия")}
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((b, i) => {
+            const share = b.culprit + b.victim > 0 ? b.culprit / (b.culprit + b.victim) : 0;
+            const isSel = selected.includes(b.brand);
+            return (
+              <tr
+                key={b.brand}
+                onClick={() => onToggle(b.brand)}
+                className={`cursor-pointer border-b border-slate-800/50 transition hover:bg-slate-800/40 ${
+                  isSel ? "bg-orange-500/10" : ""
+                }`}
+              >
+                <td className="px-2 py-1.5 text-xs text-slate-600">{i + 1}</td>
+                <td className="px-2 py-1.5 font-medium text-slate-200">
+                  {isSel && <span className="mr-1 text-orange-400">●</span>}
+                  {b.brand}
+                </td>
+                <td className="px-2 py-1.5 text-right tabular-nums">{b.total.toLocaleString("ru-RU")}</td>
+                <td className="px-2 py-1.5 text-right text-xs tabular-nums text-slate-400">
+                  <span className="text-red-400">{b.culprit.toLocaleString("ru-RU")}</span>
+                  {" / "}
+                  <span className="text-sky-400">{b.victim.toLocaleString("ru-RU")}</span>
+                </td>
+                <td className="px-2 py-1.5 text-right tabular-nums">{(share * 100).toFixed(1)}%</td>
+                <td className="px-2 py-1.5 text-right">
+                  <span
+                    className="rounded px-1.5 py-0.5 text-xs font-semibold tabular-nums"
+                    style={{
+                      backgroundColor:
+                        b.aggr >= 1.15 ? "rgba(239,68,68,.15)" : b.aggr <= 0.85 ? "rgba(52,211,153,.15)" : "rgba(148,163,184,.15)",
+                      color: b.aggr >= 1.15 ? "#f87171" : b.aggr <= 0.85 ? "#34d399" : "#cbd5e1",
+                    }}
+                  >
+                    {b.aggr.toFixed(2)}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* ============================ сравнение ============================ */
+function CompareChart({
+  selected,
+  rows,
+  brandsFile,
+}: {
+  selected: string[];
+  rows: CulpritBrand[];
+  brandsFile: BrandsFile;
+}) {
+  const byName = new Map(rows.map((r) => [r.brand, r]));
+  const palette = ["#ef4444", "#38bdf8", "#34d399"];
+
+  const option: echarts.EChartsOption = useMemo(() => {
+    const names = selected;
+    const aggr = names.map((n) => byName.get(n)?.aggr ?? 0);
+    const shares = names.map((n) => {
+      const r = byName.get(n);
+      return r && r.culprit + r.victim > 0 ? Math.round((r.culprit / (r.culprit + r.victim)) * 100) : 0;
+    });
+    const totals = names.map((n) => byName.get(n)?.total ?? 0);
+    return {
+      tooltip: { trigger: "axis" },
+      legend: { top: 0, textStyle: { color: "#94a3b8" } },
+      grid: { left: 50, right: 50, top: 56, bottom: 30 },
+      xAxis: { type: "category", data: names, axisLabel: { fontWeight: "bold" as const } },
+      yAxis: [
+        { type: "value", name: "агрессия ×" },
+        { type: "value", name: "% вины / ДТП", max: 100 },
+      ],
+      series: [
+        {
+          name: "Индекс агрессии", type: "bar", data: aggr, barWidth: 26,
+          itemStyle: { borderRadius: [6, 6, 0, 0], color: "#fb923c" },
+          label: { show: true, position: "top", color: "#94a3b8", formatter: (p: unknown) => `${(p as { value: number }).value.toFixed(2)}×` },
+        },
+        {
+          name: "Доля вины, %", type: "bar", yAxisIndex: 1, data: shares, barWidth: 26,
+          itemStyle: { borderRadius: [6, 6, 0, 0], color: "#ef4444aa" },
+        },
+        {
+          name: "Всего ДТП", type: "line", yAxisIndex: 1, smooth: true,
+          data: totals, lineStyle: { width: 2, type: "dashed", color: "#38bdf8" }, itemStyle: { color: "#38bdf8" },
+        },
+      ],
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected.join("|"), rows]);
+
+  const sevRows = selected.map((n) => ({ n, d: brandsFile.brands[n] }));
+
+  return (
+    <Card title="⚔️ Сравнение марок" subtitle="Индекс агрессии = доля виновника марки относительно доли виновника в среднем по автопарку">
+      <EChart option={option} height={320} />
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        {sevRows.map(({ n, d }, i) =>
+          d ? (
+            <div key={n} className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 text-xs">
+              <div className="mb-1 flex items-center gap-2 font-semibold text-slate-200">
+                <span className="h-2 w-2 rounded-full" style={{ background: palette[i % 3] }} />
+                {n}
+              </div>
+              <div className="space-y-0.5 text-slate-400">
+                {(d.sev).map((v, j) => (
+                  <div key={j} className="flex justify-between">
+                    <span style={{ color: SEV_COLORS[j] }}>{SEV_NAMES[j]}</span>
+                    <span className="tabular-nums">{d.total > 0 ? Math.round((v / d.total) * 100) : 0}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null,
+        )}
+      </div>
+    </Card>
+  );
+}
+
+/* ============================ прежние блоки ============================ */
+function TopBrandsChart({ accent }: { accent: string }) {
+  const app = useApp();
   const vehicles = useMemo(() => {
-    if (!isRu && app.regionFile) {
-      // для региона считаем марки из строк
+    if (app.scope !== "ALL" && app.regionFile) {
       const m = new Map<number, number>();
       for (const r of app.regionFile.rows) if (r[11] >= 0) m.set(r[11], (m.get(r[11]) ?? 0) + 1);
-      const top = [...m.entries()]
+      return [...m.entries()]
         .sort((a, b) => b[1] - a[1])
         .slice(0, 25)
         .map(([i, c]) => ({ name: app.dicts.brands[i] ?? "—", count: c }));
-      return top;
     }
     return app.national.vehicles.top_brands;
-  }, [isRu, app.regionFile, app.dicts.brands, app.national]);
+  }, [app.scope, app.regionFile, app.dicts.brands, app.national]);
 
-  const culprits = useMemo(() => {
-    if (!isRu && app.regionFile) return deriveRegionCulprits(app.regionFile.rows);
-    return null;
-  }, [isRu, app.regionFile]);
-
-  const nationalCulprits = app.national.culprits;
-
-  const brandsOption: echarts.EChartsOption = useMemo(
+  const option: echarts.EChartsOption = useMemo(
     () => ({
       tooltip: { trigger: "axis" },
       grid: { left: 130, right: 60, top: 8, bottom: 24 },
       xAxis: { type: "value" },
-      yAxis: {
-        type: "category",
-        data: vehicles.map((b) => b.name).reverse(),
-        axisLabel: { fontSize: 11 },
-      },
+      yAxis: { type: "category", data: vehicles.map((b) => b.name).reverse(), axisLabel: { fontSize: 11 } },
       series: [{
         type: "bar",
         data: vehicles.map((b) => b.count).reverse(),
-        itemStyle: { color: ACCENT, borderRadius: [0, 6, 6, 0] },
+        itemStyle: { color: accent, borderRadius: [0, 6, 6, 0] },
         label: { show: true, position: "right", color: "#94a3b8" },
       }],
     }),
-    [vehicles],
+    [vehicles, accent],
   );
+  return <EChart option={option} height={420} />;
+}
 
-  const expSevOption: echarts.EChartsOption | null = useMemo(() => {
-    const ex = app.national.experience;
-    return {
+function ExperienceCharts() {
+  const ex = useApp().national.experience;
+  const expSevOption: echarts.EChartsOption = useMemo(
+    () => ({
       tooltip: { trigger: "axis" },
       legend: { top: 0, textStyle: { color: "#94a3b8" } },
       grid: { left: 50, right: 24, top: 36, bottom: 40 },
       xAxis: { type: "category", data: ex.buckets, axisLabel: { interval: 0, fontSize: 10 } },
-      yAxis: [
-        { type: "value" },
-        { type: "value", name: "% тяжёлых", max: 100 },
-      ],
+      yAxis: [{ type: "value" }, { type: "value", name: "% тяжёлых", max: 100 }],
       series: [
         {
           name: "ДТП с водителями этого стажа", type: "bar",
@@ -81,132 +539,8 @@ export default function FleetTab() {
           lineStyle: { type: "dashed", color: "#64748b" }, itemStyle: { color: "#64748b" },
         },
       ],
-    };
-  }, [app.national.experience]);
-
-  const expNightOption: echarts.EChartsOption | null = useMemo(() => {
-    const ex = app.national.experience;
-    return {
-      tooltip: {},
-      grid: { left: 50, right: 20, top: 24, bottom: 40 },
-      xAxis: { type: "category", data: ex.buckets, axisLabel: { interval: 0, fontSize: 10 } },
-      yAxis: { type: "value", name: "% ночных ДТП" },
-      series: [{
-        name: "Доля ночных ДТП", type: "bar",
-        data: ex.stats.map((s) => Math.round(s.night_share * 100)),
-        itemStyle: { color: "#6366f1", borderRadius: [6, 6, 0, 0] },
-      }],
-    };
-  }, [app.national.experience]);
-
-  // Виновность по маркам: нац. матрица + региональный рейтинг
-  const culpritBars = useMemo(() => {
-    if (culprits) {
-      return culprits.byBrand.slice(0, 15).map((b) => ({
-        brand: app.dicts.brands[b.idx] ?? "?",
-        culprit: b.count,
-        victim: null as number | null,
-        aggr: null as number | null,
-      }));
-    }
-    return nationalCulprits.brands.slice(0, 15).map((b) => ({
-      brand: b.brand, culprit: b.culprit, victim: b.victim, aggr: b.aggr,
-    }));
-  }, [culprits, nationalCulprits, app.dicts.brands]);
-
-  const culpritOption: echarts.EChartsOption | null = useMemo(() => {
-    if (!culpritBars.length) return null;
-    const hasVictim = culpritBars.some((b) => b.victim !== null);
-    return {
-      tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
-      legend: { top: 0, textStyle: { color: "#94a3b8" } },
-      grid: { left: 130, right: 30, top: hasVictim ? 34 : 16, bottom: 24 },
-      xAxis: { type: "value" },
-      yAxis: { type: "category", data: culpritBars.map((b) => b.brand).reverse(), axisLabel: { fontSize: 11 } },
-      series: [
-        {
-          name: "Виновник (ТС с нарушениями)", type: "bar", stack: isRu ? undefined : undefined,
-          barGap: "-100%",
-          data: culpritBars.map((b) => b.culprit).reverse(),
-          itemStyle: { color: "#ef4444", borderRadius: [0, 5, 5, 0], opacity: 0.92 },
-        },
-        ...(hasVictim
-          ? [{
-              name: "Пострадавший (без нарушений)", type: "bar" as const,
-              data: [...culpritBars].reverse().map((b) => b.victim ?? 0),
-              itemStyle: { color: "#38bdf8", borderRadius: [0, 5, 5, 0], opacity: 0.85 },
-            }]
-          : []),
-      ],
-    };
-  }, [culpritBars, isRu]);
-
-  const violationsTop = nationalCulprits.violations_top;
-
-  return (
-    <div className="space-y-4">
-      {/* --- Виновники --- */}
-      <Card
-        title="⚠️ Кто виновник: марки-лидеры"
-        subtitle={nationalCulprits.methodology}
-      >
-        <div className="mb-3 flex flex-wrap gap-2">
-          <Badge tone="red">виновник: у водителя есть нарушение ПДД</Badge>
-          <Badge tone="blue">пострадавший: нарушений нет</Badge>
-          <Badge tone="slate">
-            ДТП с установленным виновником за рулём:{" "}
-            {nationalCulprits.totals.with_vehicle_culprit.toLocaleString("ru-RU")} из{" "}
-            {nationalCulprits.totals.accidents.toLocaleString("ru-RU")}
-          </Badge>
-        </div>
-        {culpritOption ? (
-          <EChart option={culpritOption} height={430} />
-        ) : (
-          <p className="text-sm text-slate-500">Нет данных по региону.</p>
-        )}
-        {!isRu && (
-          <p className="mt-2 text-xs text-slate-500">
-            Показан рейтинг марок-виновников выбранного региона. Сравнение «виновник/жертва» — на вкладке в режиме «Вся Россия».
-          </p>
-        )}
-      </Card>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Топ нарушений виновников" subtitle="По всем участникам-водителям страны">
-          <ol className="space-y-1.5 text-xs">
-            {violationsTop.slice(0, 12).map(([t, c], i) => (
-              <li key={t} className="flex items-center gap-2 rounded-lg bg-slate-800/40 px-2.5 py-1.5">
-                <span className="w-5 text-right font-bold text-orange-400">{i + 1}</span>
-                <span className="flex-1 leading-snug text-slate-300">{t}</span>
-                <span className="tabular-nums text-slate-400">{c.toLocaleString("ru-RU")}</span>
-              </li>
-            ))}
-          </ol>
-        </Card>
-
-        <div className="space-y-4">
-          <Card title="Марки автомобилей в ДТП" subtitle={isRu ? "Топ-25 марок первого ТС" : "Топ марок региона"}>
-            <EChart option={brandsOption} height={420} />
-          </Card>
-        </div>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Стаж вождения и тяжесть ДТП" subtitle="Национальные данные · ~93% водителей имеют стаж в записях">
-          <EChart option={expSevOption!} height={320} />
-        </Card>
-        <Card title="Ночные поездки по группам стажа" subtitle="Доля ДТП ночью (23:00–06:00)">
-          <EChart option={expNightOption!} height={260} />
-          <div className="mt-3 flex gap-1.5">
-            {[0, 1, 2].map((i) => (
-              <span key={i} className="flex items-center gap-1 text-xs text-slate-400">
-                <span className="h-2 w-2 rounded-full" style={{ background: SEV_COLORS[i] }} />
-                {SEV_NAMES[i]}
-              </span>
-            ))}
-          </div>
-        </Card>
-      </div>
-    </div>
+    }),
+    [ex],
   );
+  return <EChart option={expSevOption} height={420} />;
 }

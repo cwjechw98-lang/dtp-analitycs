@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../state/AppState";
+import { useTheme } from "../state/ThemeContext";
 import type { PointRow } from "../lib/types";
-import { ACCENT, SEV_COLORS } from "../lib/data";
+import { SEV_COLORS } from "../lib/data";
 import EChart from "./EChart";
 import { Badge, Card } from "./ui";
 import { filterCorridor } from "../lib/corridor";
@@ -52,6 +53,7 @@ const MAX_ROUTE_REGIONS = 10;
 
 export default function RouteTab() {
   const app = useApp();
+  const theme = useTheme();
   const [a, setA] = useState<Pt | null>(null);
   const [b, setB] = useState<Pt | null>(null);
   const [route, setRoute] = useState<OsrmRoute | null>(null);
@@ -378,7 +380,7 @@ export default function RouteTab() {
       yAxis: { type: "category", data: corridor.topBrands.map((c) => c[0]).reverse(), axisLabel: { fontSize: 11 } },
       series: [{
         type: "bar", data: corridor.topBrands.map((c) => c[1]).reverse(),
-        itemStyle: { color: ACCENT, borderRadius: [0, 6, 6, 0] },
+        itemStyle: { color: theme.accentMain, borderRadius: [0, 6, 6, 0] },
         label: { show: true, position: "right", color: "#94a3b8" },
       }],
     };

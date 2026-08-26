@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useApp } from "../state/AppState";
-import { ACCENT, SEV_COLORS } from "../lib/data";
+import { useTheme } from "../state/ThemeContext";
+import { SEV_COLORS } from "../lib/data";
 import { deriveRegion } from "../lib/derive";
 import EChart from "./EChart";
 import { Card, StatCard } from "./ui";
@@ -10,6 +11,7 @@ const SEV_NAMES = ["Лёгкие", "Тяжёлые", "С погибшими"];
 
 export default function OverviewTab() {
   const app = useApp();
+  const theme = useTheme();
   const isRu = app.scope === "ALL";
 
   const view = useMemo(() => {
@@ -52,7 +54,7 @@ export default function OverviewTab() {
       series: [
         {
           name: "ДТП", type: "bar", barMaxWidth: 34,
-          itemStyle: { color: ACCENT, borderRadius: [6, 6, 0, 0] },
+          itemStyle: { color: theme.accentMain, borderRadius: [6, 6, 0, 0] },
           data: years.map((y) => y.accidents),
         },
         {
@@ -67,7 +69,7 @@ export default function OverviewTab() {
         },
       ],
     };
-  }, [view, years]);
+  }, [view, years, theme.accentMain]);
 
   const catOption: echarts.EChartsOption | null = useMemo(() => {
     if (!view) return null;

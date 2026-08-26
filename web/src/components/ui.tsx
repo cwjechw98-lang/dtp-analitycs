@@ -18,7 +18,7 @@ export function Card({
   className = "",
   delay = 0,
 }: {
-  title?: string;
+  title?: ReactNode;
   subtitle?: ReactNode;
   children: ReactNode;
   className?: string;

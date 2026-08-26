@@ -215,6 +215,10 @@ class Acc:
 
         # виновность
         self.violations_top = collections.Counter()
+        # Детали по маркам для эксплорера автопрома
+        self.brand_models_total = collections.defaultdict(collections.Counter)
+        self.brand_models_culprit = collections.defaultdict(collections.Counter)
+        self.brand_viol = collections.defaultdict(collections.Counter)
         self.culprit_by_brand = collections.Counter()   # марка виновника (по ТС)
         self.victim_by_brand = collections.Counter()    # марка «пострадавшего» ТС
         self.accidents_with_vehicle_culprit = 0
@@ -331,6 +335,7 @@ class Acc:
                 self.brand_cnt[b] += 1
                 self.brand_sev[b][sidx] += 1
             is_driver_violator = False
+            driver_viols: list[str] = []
             for part in (veh.get("participants") or []):
                 if part.get("role") != "Водитель":
                     continue
@@ -338,6 +343,7 @@ class Acc:
                 viols = [v for v in (part.get("violations") or []) if v and v != "Нет нарушений"]
                 if viols:
                     self.violations_top.update(v for v in viols)
+                    driver_viols.extend(viols)
                     is_driver_violator = True
                     ebi = exp_bucket_idx(part.get("years_of_driving_experience"))
                     if ebi >= 0:
@@ -361,6 +367,13 @@ class Acc:
                     self.victim_by_brand[b] += 1
             if m:
                 self.model_cnt[(b or "?") + "|" + m] += 1
+                if b:
+                    self.brand_models_total[b][m] += 1
+                    if is_driver_violator:
+                        self.brand_models_culprit[b][m] += 1
+            if b and driver_viols:
+                for _v in driver_viols:
+                    self.brand_viol[b][_v] += 1
             if vc:
                 self.veh_cat_cnt[vc] += 1
             if isinstance(vy, int) and 1950 <= vy <= year:
@@ -699,6 +712,29 @@ def main() -> int:
         },
     }
     dump(OUT / "national.json", national)
+
+    # ---- детали по маркам (эксплорер автопрома) ----
+    # ВАЖНО: поле model в исходном geojson ненадёжно (марки и модели
+    # перемешаны источником), поэтому модели не публикуем.
+    brands_detail = {}
+    for b in acc.brands.keys():
+        sev_c = acc.brand_sev.get(b)
+        if not sev_c:
+            continue
+        sev = [int(sev_c.get(i, 0)) for i in range(3)]
+        if sum(sev) == 0:
+            continue
+        brands_detail[b] = {
+            "total": sum(sev),
+            "sev": sev,
+            "culprit": acc.culprit_by_brand.get(b, 0),
+            "victim": acc.victim_by_brand.get(b, 0),
+            "violations": [[t, c] for t, c in acc.brand_viol[b].most_common(6)],
+        }
+    dump(OUT / "brands.json", {
+        "generated_at_utc": started.isoformat(),
+        "brands": brands_detail,
+    })
 
     # ---- тепловые ячейки ----
     # Ячейка живёт, только если попадает в bbox хотя бы одного очищенного

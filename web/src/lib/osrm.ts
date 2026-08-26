@@ -28,17 +28,38 @@ export interface GeoResult {
   lon: number;
 }
 
-/** Геокодинг через Nominatim (лёгкое использование с задержкой). */
+/**
+ * Геокодинг через Nominatim (лёгкое использование с задержкой).
+ * Сначала ищем запрос как есть; если пусто — пробуем «, Россия».
+ * Регион НЕ приклеиваем: «Тобольск Омская область» не существует.
+ */
 export async function geocode(query: string): Promise<GeoResult[]> {
-  const url =
-    `https://nominatim.openstreetmap.org/search?format=json&limit=5&accept-language=ru` +
-    `&q=${encodeURIComponent(query + " Омская область")}`;
-  const res = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!res.ok) throw new Error(`Nominatim: HTTP ${res.status}`);
-  const json = (await res.json()) as { display_name: string; lat: string; lon: string }[];
-  return json.map((r) => ({
-    name: r.display_name,
-    lat: Number(r.lat),
-    lon: Number(r.lon),
-  }));
+  const attempts = [
+    encodeURIComponent(query.trim()),
+    encodeURIComponent(query.trim() + ", Россия"),
+  ];
+  let lastError: unknown = null;
+  for (const q of attempts) {
+    const url =
+      `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=ru&countrycodes=ru` +
+      `&q=${q}`;
+    try {
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      if (!res.ok) throw new Error(`Nominatim: HTTP ${res.status}`);
+      const json = (await res.json()) as { display_name: string; lat: string; lon: string }[];
+      if (json.length > 0) {
+        return json.map((r) => ({
+          name: r.display_name,
+          lat: Number(r.lat),
+          lon: Number(r.lon),
+        }));
+      }
+    } catch (e) {
+      lastError = e;
+    }
+    // вежливая пауза между попытками (лимит Nominatim ≈ 1 rps)
+    await new Promise((r) => setTimeout(r, 1100));
+  }
+  if (lastError) throw lastError;
+  throw new Error("Nominatim: ничего не найдено по запросу «" + query + "»");
 }

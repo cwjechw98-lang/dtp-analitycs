@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import L from "leaflet";
+import "leaflet.markercluster";
 import type { Datasets } from "../lib/data";
 import { SEV_COLORS } from "../lib/data";
 import { Card } from "./ui";
@@ -36,34 +38,27 @@ export default function MapTab({ data }: { data: Datasets }) {
 
   useEffect(() => {
     if (!el.current || mapRef.current) return;
-    let destroyed = false;
-    (async () => {
-      const L = await import("leaflet");
-      await import("leaflet.markercluster");
-      if (destroyed || !el.current) return;
-      const b = data.meta.bbox;
-      const map = L.map(el.current, { preferCanvas: true });
-      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        maxZoom: 18,
-      }).addTo(map);
-      map.fitBounds([
-        [b.lat_min, b.lon_min],
-        [b.lat_max, b.lon_max],
-      ]);
-      const cluster = L.markerClusterGroup({
-        chunkedLoading: true,
-        maxClusterRadius: 42,
-        showCoverageOnHover: false,
-      });
-      map.addLayer(cluster);
-      mapRef.current = map;
-      clusterRef.current = cluster;
-      setReady(true);
-    })();
+    const b = data.meta.bbox;
+    const map = L.map(el.current, { preferCanvas: true });
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 18,
+    }).addTo(map);
+    map.fitBounds([
+      [b.lat_min, b.lon_min],
+      [b.lat_max, b.lon_max],
+    ]);
+    const cluster = L.markerClusterGroup({
+      chunkedLoading: true,
+      maxClusterRadius: 42,
+      showCoverageOnHover: false,
+    });
+    map.addLayer(cluster);
+    mapRef.current = map;
+    clusterRef.current = cluster;
+    setReady(true);
     return () => {
-      destroyed = true;
-      mapRef.current?.remove();
+      map.remove();
       mapRef.current = null;
       clusterRef.current = null;
     };
@@ -88,11 +83,9 @@ export default function MapTab({ data }: { data: Datasets }) {
   useEffect(() => {
     const cluster = clusterRef.current;
     if (!ready || !cluster) return;
-    (async () => {
-      const L = await import("leaflet");
-      cluster.clearLayers();
-      for (const r of filtered) {
-        const m = L.circleMarker([r[0], r[1]], {
+    cluster.clearLayers();
+    for (const r of filtered) {
+      const m = L.circleMarker([r[0], r[1]], {
           radius: r[5] === 2 ? 7 : r[5] === 1 ? 5 : 4,
           fillColor: SEV_COLORS[r[5]],
           color: "#0b1220",
@@ -115,7 +108,6 @@ export default function MapTab({ data }: { data: Datasets }) {
         m.bindPopup(parts.join("<br/>"));
         cluster.addLayer(m);
       }
-    })();
   }, [filtered, ready, dicts, data]);
 
   const toggleSev = (i: number) =>

@@ -157,6 +157,23 @@ export default function RouteTab() {
         (rg) =>
           !(rg.bbox[0] > bb.la1 || rg.bbox[1] < bb.la0 || rg.bbox[2] > bb.lo1 || rg.bbox[3] < bb.lo0),
       );
+      if (hit.length === 0) {
+        // Фолбэк: маршрут между кластерами регионов — берём ближайшие по центру
+        const laC = (bb.la0 + bb.la1) / 2;
+        const loC = (bb.lo0 + bb.lo1) / 2;
+        hit.push(
+          ...[...app.meta.regions]
+            .map((rg) => ({
+              rg,
+              d:
+                Math.pow((rg.bbox[0] + rg.bbox[1]) / 2 - laC, 2) +
+                Math.pow((rg.bbox[2] + rg.bbox[3]) / 2 - loC, 2),
+            }))
+            .sort((x, y) => x.d - y.d)
+            .slice(0, 4)
+            .map((x) => x.rg),
+        );
+      }
       hit.sort((x, y) => y.total - x.total);
       const chosen = hit.slice(0, MAX_ROUTE_REGIONS); // ограничиваем объём загрузки
       const MARGIN = 0.35; // ° запаса вокруг bbox маршрута при предфильтре строк

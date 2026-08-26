@@ -116,6 +116,30 @@ def geohash5(lat: float, lon: float) -> str:
     return "".join(out)
 
 
+def geohash_decode(h: str) -> tuple[float, float]:
+    """Центр геохэш-ячейки (lat, lon)."""
+    lat_lo, lat_hi = -90.0, 90.0
+    lon_lo, lon_hi = -180.0, 180.0
+    even = True
+    for ch in h:
+        cd = GEOHASH_BASE32.index(ch)
+        for bitmask in (16, 8, 4, 2, 1):
+            if even:
+                mid = (lon_lo + lon_hi) / 2
+                if cd & bitmask:
+                    lon_lo = mid
+                else:
+                    lon_hi = mid
+            else:
+                mid = (lat_lo + lat_hi) / 2
+                if cd & bitmask:
+                    lat_lo = mid
+                else:
+                    lat_hi = mid
+            even = not even
+    return (lat_lo + lat_hi) / 2, (lon_lo + lon_hi) / 2
+
+
 def iter_features(path: pathlib.Path):
     """Стриминг фич: ijson если доступен, иначе обычная загрузка."""
     try:
@@ -218,7 +242,9 @@ class Acc:
             lon = round(float(pt["long"]), 5)
         except (KeyError, TypeError, ValueError):
             return
-        if not (-90 <= lat <= 90 and -180 <= lon <= 180) or (lat == 0 and lon == 0):
+        # Санитарный фильтр: только реалистичные координаты России.
+        # Мусорные точки источника вроде (5, 1) ломали bbox региона и карту.
+        if not (40 <= lat <= 84 and -170 <= lon <= 180):
             return
 
         ds = p.get("datetime") or ""
@@ -544,6 +570,34 @@ def main() -> int:
             print(f"[{num}/{len(slugs)}] {slug}: пусто, пропускаю", flush=True)
             continue
 
+        # Робастная чистка геометрии: редкие ошибки геокодинга источника
+        # (точки в Африке/Европе внутри файла региона) ломают bbox.
+        # Медиана + адаптивный радиус: обычным областям хватает базы,
+        # огромным регионам (Красноярск) радиус растёт от их реального размаха.
+        import statistics as _st
+
+        _lats = sorted(r[0] for r in rows)
+        _lons = sorted(r[1] for r in rows)
+        _n = len(rows)
+
+        def _q(arr: list, p: float):
+            return arr[min(_n - 1, int(p * _n))]
+
+        _mla, _mlo = _lats[_n // 2], _lons[_n // 2]
+        _rla = max(3.0, (_q(_lats, 0.99) - _q(_lats, 0.01)) * 1.2)
+        _rlo = max(5.0, (_q(_lons, 0.99) - _q(_lons, 0.01)) * 1.2)
+        before_clean = len(rows)
+        rows = [
+            r for r in rows
+            if abs(r[0] - _mla) <= _rla and abs(r[1] - _mlo) <= _rlo
+        ]
+        if len(rows) < before_clean:
+            print(
+                f"    чистка: отброшено {before_clean - len(rows)} точек с "
+                f"невозможными координатами",
+                flush=True,
+            )
+
         lats = [r[0] for r in rows]
         lons = [r[1] for r in rows]
         region_infos.append({
@@ -647,9 +701,25 @@ def main() -> int:
     dump(OUT / "national.json", national)
 
     # ---- тепловые ячейки ----
+    # Ячейка живёт, только если попадает в bbox хотя бы одного очищенного
+    # региона — так на глобальной карте не остаётся «звёзд» от мусорных
+    # координат источника.
+    _boxes = [r["bbox"] for r in region_infos]
+
+    def _cell_ok(la: float, lo: float) -> bool:
+        for b in _boxes:
+            if b[0] - 0.3 <= la <= b[1] + 0.3 and b[2] - 0.5 <= lo <= b[3] + 0.5:
+                return True
+        return False
+
     cells = []
+    dropped_cells = 0
     for key, cnt in acc.heat_cells.items():
         if ":" in key:
+            continue
+        cla, clo = geohash_decode(key)
+        if not _cell_ok(cla, clo):
+            dropped_cells += cnt
             continue
         dead = acc.heat_cells.get(key + ":d", 0)
         inj = acc.heat_cells.get(key + ":i", 0)
@@ -659,6 +729,8 @@ def main() -> int:
         cells.append([key, s0, s1, s2, dead, inj])
     cells.sort(key=lambda c: -(c[1] + c[2] + c[3]))
     dump(OUT / "heat_cells.json", cells)
+    if dropped_cells:
+        print(f"    heat: отброшено {dropped_cells} ДТП вне bbox регионов", flush=True)
 
     # ---- советы ----
     rules = build_rules(acc, baseline_sev)

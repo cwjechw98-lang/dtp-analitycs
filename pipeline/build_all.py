@@ -221,6 +221,9 @@ class Acc:
         self.brand_viol = collections.defaultdict(collections.Counter)
         self.culprit_by_brand = collections.Counter()   # марка виновника (по ТС)
         self.victim_by_brand = collections.Counter()    # марка «пострадавшего» ТС
+        # для карточки марки: динамика по годам и гео-охват по регионам
+        self.brand_by_year = collections.defaultdict(collections.Counter)      # марка -> год -> ДТП
+        self.brand_by_region = collections.defaultdict(collections.Counter)    # марка -> регион -> ДТП
         self.accidents_with_vehicle_culprit = 0
         self.pedestrian_culprit_accidents = 0
 
@@ -238,7 +241,7 @@ class Acc:
 
         self.heat_cells = collections.Counter()
 
-    def feed(self, feat, rows_out: list) -> None:
+    def feed(self, feat, rows_out: list, region: str = "") -> None:
         p = feat.get("properties") or {}
         pt = p.get("point") or {}
         try:
@@ -334,6 +337,9 @@ class Acc:
             if b:
                 self.brand_cnt[b] += 1
                 self.brand_sev[b][sidx] += 1
+                self.brand_by_year[b][year] += 1
+                if region:
+                    self.brand_by_region[b][region] += 1
             is_driver_violator = False
             driver_viols: list[str] = []
             for part in (veh.get("participants") or []):
@@ -572,7 +578,7 @@ def main() -> int:
             if pr and name == slug:
                 name = pr
             before = acc.total
-            acc.feed(feat, rows)
+            acc.feed(feat, rows, region=name)
             if acc.total > before:
                 count += 1
                 d = (props.get("datetime") or "")[:10]
@@ -724,12 +730,22 @@ def main() -> int:
         sev = [int(sev_c.get(i, 0)) for i in range(3)]
         if sum(sev) == 0:
             continue
+        # сжимаем динамику по годам и гео-охват до компактных списков
+        by_year = [[str(y), c] for y, c in sorted(acc.brand_by_year[b].items())]
+        # регионов много — берём топ-12 по числу ДТП с маркой + "прочие"
+        reg_items = sorted(acc.brand_by_region[b].items(), key=lambda kv: -kv[1])
+        by_region = [[r, c] for r, c in reg_items[:12]]
+        rest_c = sum(c for _, c in reg_items[12:])
+        if rest_c:
+            by_region.append(["Прочие регионы", rest_c])
         brands_detail[b] = {
             "total": sum(sev),
             "sev": sev,
             "culprit": acc.culprit_by_brand.get(b, 0),
             "victim": acc.victim_by_brand.get(b, 0),
             "violations": [[t, c] for t, c in acc.brand_viol[b].most_common(6)],
+            "by_year": by_year,
+            "by_region": by_region,
         }
     dump(OUT / "brands.json", {
         "generated_at_utc": started.isoformat(),

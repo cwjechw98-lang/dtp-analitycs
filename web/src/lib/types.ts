@@ -98,6 +98,10 @@ export interface BrandDetail {
   victim: number;
   /** топ-нарушения водителей марки */
   violations: [string, number][];
+  /** динамика по годам: [год, ДТП] */
+  by_year: [string, number][];
+  /** гео-охват: [регион, ДТП] — топ-12 + прочие */
+  by_region: [string, number][];
 }
 
 export interface BrandsFile {

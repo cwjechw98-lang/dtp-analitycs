@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useApp } from "../state/AppState";
 import { useTheme } from "../state/ThemeContext";
-import type { BrandsFile, CulpritBrand } from "../lib/types";
+import type { BrandDetail, BrandsFile, CulpritBrand } from "../lib/types";
 import EChart from "./EChart";
 import { Badge, Card } from "./ui";
 import type * as echarts from "echarts";
@@ -247,7 +247,7 @@ function BrandCard({
   accentMain,
 }: {
   name: string;
-  detail: { total: number; sev: [number, number, number]; culprit: number; victim: number; violations: [string, number][] };
+  detail: BrandDetail;
   nationalRow?: CulpritBrand;
   baselineShare: number;
   isSelected: boolean;
@@ -295,6 +295,10 @@ function BrandCard({
 
         <SevDonut sev={detail.sev} total={totalSev} />
 
+        {(detail.by_year?.length ?? 0) > 1 && <YearTrend by_year={detail.by_year} accent={accentMain} />}
+
+        {(detail.by_region?.length ?? 0) > 0 && <RegionSpread by_region={detail.by_region} accent={accentMain} />}
+
         {detail.violations.length > 0 && (
           <div className="mt-3 space-y-1">
             <div className="text-[11px] uppercase tracking-wider text-slate-500">Топ-нарушения водителей</div>
@@ -341,6 +345,58 @@ function SevDonut({ sev, total }: { sev: [number, number, number]; total: number
         <div className="text-xl font-bold text-white tabular-nums">{total.toLocaleString("ru-RU")}</div>
         <div className="text-[9px] uppercase tracking-widest text-slate-500">дтп</div>
       </div>
+    </div>
+  );
+}
+
+/** Динамика ДТП с маркой по годам. */
+function YearTrend({ by_year, accent }: { by_year: [string, number][]; accent: string }) {
+  const option: echarts.EChartsOption = useMemo(() => {
+    const years = by_year.map(([y]) => y);
+    const data = by_year.map(([, c]) => c);
+    return {
+      tooltip: { trigger: "axis" },
+      grid: { left: 46, right: 20, top: 16, bottom: 26 },
+      xAxis: { type: "category", data: years, axisLabel: { fontSize: 10 } },
+      yAxis: { type: "value" },
+      series: [{
+        type: "line", smooth: true, symbolSize: 5, data,
+        lineStyle: { width: 2.5, color: accent },
+        itemStyle: { color: accent },
+        areaStyle: { color: "rgba(249,115,22,0.12)" },
+      }],
+    };
+  }, [by_year, accent]);
+  return (
+    <div className="mt-3">
+      <div className="mb-1 text-[11px] uppercase tracking-wider text-slate-500">Динамика по годам</div>
+      <EChart option={option} height={150} />
+    </div>
+  );
+}
+
+/** Гео-охват: топ регионов по числу ДТП с маркой. */
+function RegionSpread({ by_region, accent }: { by_region: [string, number][]; accent: string }) {
+  const option: echarts.EChartsOption = useMemo(() => {
+    const names = by_region.map(([r]) => (r.length > 26 ? r.slice(0, 25) + "…" : r)).reverse();
+    const data = by_region.map(([, c]) => c).reverse();
+    return {
+      tooltip: {},
+      grid: { left: 140, right: 40, top: 8, bottom: 8 },
+      xAxis: { type: "value" },
+      yAxis: { type: "category", data: names, axisLabel: { fontSize: 10 } },
+      series: [{
+        type: "bar", data,
+        itemStyle: { color: accent, borderRadius: [0, 5, 5, 0] },
+        label: { show: true, position: "right", color: "#94a3b8", fontSize: 10 },
+      }],
+    };
+  }, [by_region, accent]);
+  if (by_region.length === 0) return null;
+  return (
+    <div className="mt-3">
+      <div className="mb-1 text-[11px] uppercase tracking-wider text-slate-500">Гео-охват · регионы</div>
+      <EChart option={option} height={Math.max(120, by_region.length * 22)} />
     </div>
   );
 }

@@ -6,9 +6,10 @@ import { SEV_COLORS } from "../lib/data";
 import EChart from "./EChart";
 import { Badge, Card } from "./ui";
 import { filterCorridor, haversine, pointInCircle, pointInPolygon } from "../lib/corridor";
-// Плагин кластеров обязан регистрироваться при загрузке модуля:
-// Leaflet в этой вкладке импортируется динамически, без side-effect
-// импорта T.markerClusterGroup не появится в динамическом инстансе.
+// Leaflet импортируется СТАТИЧЕСКИ (как в MapTab): динамический import
+// создаёт отдельный чанк с собственной копией Leaflet, в которую плагин
+// markercluster не регистрируется — получаем "markerClusterGroup is not a function".
+import L from "leaflet";
 import "leaflet.markercluster";
 import { fetchRoute, geocode, type GeoResult, type OsrmRoute } from "../lib/osrm";
 import { seasonOfYm, todOf } from "../lib/time";
@@ -169,7 +170,6 @@ export default function RouteTab() {
     (async () => {
       const map = mapRef.current;
       if (!map || !mapReady) return;
-      const L = await import("leaflet");
       selRef.current?.clearLayers();
       if (!selShape) {
         setSelRows(null);
@@ -195,7 +195,6 @@ export default function RouteTab() {
     (async () => {
       const cluster = accDotsRef.current;
       if (!cluster || !mapReady) return;
-      const L = await import("leaflet");
       cluster.clearLayers();
       if (!rows || rows.length === 0) return;
       const step = Math.max(1, Math.ceil(rows.length / MAX_ROUTE_DOTS));
@@ -234,7 +233,6 @@ export default function RouteTab() {
     if (!node || mapRef.current) return;
     let destroyed = false;
     (async () => {
-      const L = await import("leaflet");
       if (destroyed || !node) return;
       const map = L.map(node, { preferCanvas: true }).setView([56, 44], 5);
       const group = L.layerGroup().addTo(map);
@@ -336,7 +334,6 @@ export default function RouteTab() {
   useEffect(() => {
     (async () => {
       if (!mapReady) return;
-      const L = await import("leaflet");
       const map = mapRef.current as L.Map | null;
       if (!map) return;
       map.eachLayer((l) => {
@@ -358,7 +355,6 @@ export default function RouteTab() {
     (async () => {
       const group = layersRef.current;
       if (!group) return;
-      const L = await import("leaflet");
       group.clearLayers();
       if (a)
         L.circleMarker([a.lat, a.lon], { radius: 8, color: "#38bdf8", fillOpacity: 1, fillColor: "#38bdf8" })

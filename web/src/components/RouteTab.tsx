@@ -238,8 +238,12 @@ export default function RouteTab() {
       const map = L.map(node, { preferCanvas: true }).setView([56, 44], 5);
       console.log("[RouteTab] init: map created, cluster next");
       const group = L.layerGroup().addTo(map);
-      accDotsRef.current = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 42 }).addTo(map);
-      console.log("[RouteTab] init: cluster added");
+      try {
+        accDotsRef.current = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 42 }).addTo(map);
+        console.log("[RouteTab] init: cluster added");
+      } catch (e) {
+        console.log("[RouteTab] init: CLUSTER ERROR:", String(e));
+      }
       selRef.current = L.layerGroup().addTo(map);
       selDrawRef.current = L.layerGroup().addTo(map);
 

@@ -96,3 +96,21 @@ export function filterCorridor(
   }
   return out;
 }
+
+/** Точка внутри произвольного полигона (ray casting). pts: [lat, lon][] */
+export function pointInPolygon(lat: number, lon: number, pts: [number, number][]): boolean {
+  if (pts.length < 3) return false;
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const yi = pts[i][0], xi = pts[i][1];
+    const yj = pts[j][0], xj = pts[j][1];
+    const intersect = yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+/** Точка внутри круга (центр [lat, lon], радиус в метрах). */
+export function pointInCircle(lat: number, lon: number, c: [number, number], radiusM: number): boolean {
+  return haversine(lat, lon, c[0], c[1]) <= radiusM;
+}

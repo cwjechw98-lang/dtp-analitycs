@@ -5,7 +5,7 @@ import type { PointRow } from "../lib/types";
 import { SEV_COLORS } from "../lib/data";
 import EChart from "./EChart";
 import { Badge, Card } from "./ui";
-import { filterCorridor } from "../lib/corridor";
+import { filterCorridor, haversine, pointInCircle, pointInPolygon } from "../lib/corridor";
 import { fetchRoute, geocode, type GeoResult, type OsrmRoute } from "../lib/osrm";
 import { seasonOfYm, todOf } from "../lib/time";
 import {
@@ -50,6 +50,65 @@ const SEASONS = ["Зима", "Весна", "Лето", "Осень"];
 const MAX_ROUTE_ROWS = 800_000;
 /** Максимум файлов регионов на один маршрут. */
 const MAX_ROUTE_REGIONS = 10;
+/** Потолок точек ДТП, рисуемых на мини-карте (дальше — прореживание). */
+const MAX_ROUTE_DOTS = 30_000;
+
+/** Тип выделенной области. */
+type SelShape =
+  | { kind: "circle"; c: [number, number]; r: number }
+  | { kind: "polygon"; pts: [number, number][] };
+
+export interface CorridorStats {
+  rows: PointRow[];
+  total: number;
+  dead: number;
+  injured: number;
+  severeShare: number;
+  bestHours: { h: number; c: number; lift: number }[];
+  worstHours: { h: number; c: number; lift: number }[];
+  byHour: number[];
+  byMonth: number[];
+  seasonCnt: number[];
+  topWeathersIdx: [number, number][];
+  topCats: [string, number][];
+  topBrands: [string, number][];
+}
+
+/** Считает статистику по набору строк (коридор маршрута или выделенная область). */
+export function computeStats(rows: PointRow[], dicts: { cats: string[]; brands: string[] }): CorridorStats {
+  const byHour = Array(24).fill(0);
+  const byMonth = Array(12).fill(0);
+  const seasonCnt = Array(4).fill(0);
+  const weathers = new Map<number, number>();
+  const cats = new Map<number, number>();
+  const brands = new Map<number, number>();
+  let dead = 0, injured = 0, severe = 0;
+  for (const r of rows) {
+    byHour[r[4]]++;
+    byMonth[(r[2] % 100) - 1]++;
+    seasonCnt[seasonOfYm(r[2])]++;
+    weathers.set(r[8], (weathers.get(r[8]) ?? 0) + 1);
+    cats.set(r[6], (cats.get(r[6]) ?? 0) + 1);
+    brands.set(r[11], (brands.get(r[11]) ?? 0) + 1);
+    dead += r[12]; injured += r[13];
+    if (r[5] >= 1) severe++;
+  }
+  const total = rows.length;
+  const mean = total / 24 || 1;
+  const hoursSorted = byHour.map((c, h) => ({ h, c, lift: c / mean })).sort((x, y) => x.lift - y.lift);
+  const top = <T,>(m: Map<T, number>, n: number, key: (k: T) => string): [string, number][] =>
+    [...m.entries()].sort((x, y) => y[1] - x[1]).slice(0, n).map(([k, v]) => [key(k), v]);
+  return {
+    rows, total, dead, injured,
+    severeShare: total ? severe / total : 0,
+    bestHours: hoursSorted.slice(0, 3),
+    worstHours: hoursSorted.slice(-3).reverse(),
+    byHour, byMonth, seasonCnt,
+    topWeathersIdx: [...weathers.entries()].sort((x, y) => y[1] - x[1]).slice(0, 5),
+    topCats: top(cats, 10, (i) => dicts.cats[i] ?? "—"),
+    topBrands: top(brands, 12, (i) => dicts.brands[i] ?? "—"),
+  };
+}
 
 export default function RouteTab() {
   const app = useApp();
@@ -68,6 +127,10 @@ export default function RouteTab() {
   const [results, setResults] = useState<{ for: "A" | "B"; items: GeoResult[] } | null>(null);
   const [expBucket, setExpBucket] = useState(3);
   const [bufferM, setBufferM] = useState(400);
+  /** Инструмент выделения: круг или полигон («свободная линия»). */
+  const [selTool, setSelTool] = useState<"none" | "circle" | "polygon">("none");
+  const [selShape, setSelShape] = useState<SelShape | null>(null);
+  const [selRows, setSelRows] = useState<PointRow[] | null>(null);
 
   // ---- мини-карта ----
   const mapEl = useRef<HTMLDivElement>(null);
@@ -75,7 +138,16 @@ export default function RouteTab() {
   const mapRef = useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const layersRef = useRef<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const accDotsRef = useRef<any>(null); // кластер точек ДТП
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const selRef = useRef<any>(null); // слой фигуры выделения
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const selDrawRef = useRef<any>(null); // черновик выделения
   const pickRef = useRef<"A" | "B" | null>(null);
+  const selToolRef = useRef<"none" | "circle" | "polygon">("none");
+  const selPtsRef = useRef<[number, number][]>([]); // вершины полигона
+  const selCenterRef = useRef<[number, number] | null>(null); // центр круга
   const [mapReady, setMapReady] = useState(false);
   const [tileId, setTileId] = useState(savedProviderId);
   const [tileNotice, setTileNotice] = useState<string | null>(null);
@@ -86,6 +158,72 @@ export default function RouteTab() {
   };
 
   useEffect(() => { pickRef.current = pickMode; }, [pickMode]);
+  useEffect(() => { selToolRef.current = selTool; }, [selTool]);
+
+  /** Отрисовка фигуры выделения и пересчёт статистики по ней. */
+  useEffect(() => {
+    (async () => {
+      const map = mapRef.current;
+      if (!map || !mapReady) return;
+      const L = await import("leaflet");
+      selRef.current?.clearLayers();
+      if (!selShape) {
+        setSelRows(null);
+        return;
+      }
+      if (selShape.kind === "circle") {
+        L.circle(selShape.c, { radius: selShape.r, color: "#38bdf8", weight: 2, fillColor: "#38bdf8", fillOpacity: 0.1 }).addTo(selRef.current);
+      } else {
+        L.polygon(selShape.pts, { color: "#38bdf8", weight: 2, fillColor: "#38bdf8", fillOpacity: 0.1 }).addTo(selRef.current);
+      }
+      const inSel = (rows ?? []).filter((r) =>
+        selShape.kind === "circle"
+          ? pointInCircle(r[0], r[1], selShape.c, selShape.r)
+          : pointInPolygon(r[0], r[1], selShape.pts),
+      );
+      setSelRows(inSel.length ? inSel : []);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selShape, rows, mapReady]);
+
+  /** Точки ДТП вдоль маршрута с карточкой при наведении. */
+  useEffect(() => {
+    (async () => {
+      const cluster = accDotsRef.current;
+      if (!cluster || !mapReady) return;
+      const L = await import("leaflet");
+      cluster.clearLayers();
+      if (!rows || rows.length === 0) return;
+      const step = Math.max(1, Math.ceil(rows.length / MAX_ROUTE_DOTS));
+      for (let i = 0; i < rows.length; i += step) {
+        const r = rows[i];
+        const ym = r[2];
+        const when = `${MONTHS[(ym % 100) - 1]} ${Math.floor(ym / 100)}, ~${String(r[4]).padStart(2, "0")}:00`;
+        const parts: string[] = [
+          `<b>${app.dicts.cats[r[6]] ?? "—"}</b>`,
+          `<span style="color:${SEV_COLORS[r[5]]}">${app.dicts.sevs[r[5]]}</span> · ${when}`,
+          `🕯️ ${app.dicts.lights[r[7]] ?? "—"}`,
+          `🌤️ ${app.dicts.weathers[r[8]] ?? "—"} · 🛣️ ${app.dicts.roads[r[9]] ?? "—"}`,
+        ];
+        if (r[11] >= 0) parts.push(`🚗 ${app.dicts.brands[r[11]]}`);
+        if (r[14] >= 0) parts.push(`⚠️ виновник за рулём: <b>${app.dicts.brands[r[14]]}</b>`);
+        else if (r[14] === -2) parts.push(`⚠️ виновник не за рулём`);
+        if (r[12] > 0) parts.push(`<span style="color:#ef4444">☠️ погибло: ${r[12]}</span>`);
+        if (r[13] > 0) parts.push(`🏥 ранено: ${r[13]}`);
+        L.circleMarker([r[0], r[1]], {
+          radius: r[5] === 2 ? 6 : r[5] === 1 ? 5 : 3.5,
+          fillColor: SEV_COLORS[r[5]],
+          color: "#0b1220",
+          weight: 1,
+          fillOpacity: 0.9,
+        })
+          .bindTooltip(parts.join("<br/>"), { sticky: true })
+          .bindPopup(parts.join("<br/>"))
+          .addTo(cluster);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, mapReady]);
 
   useEffect(() => {
     const node = mapEl.current;
@@ -96,13 +234,87 @@ export default function RouteTab() {
       if (destroyed || !node) return;
       const map = L.map(node, { preferCanvas: true }).setView([56, 44], 5);
       const group = L.layerGroup().addTo(map);
+      accDotsRef.current = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 42 }).addTo(map);
+      selRef.current = L.layerGroup().addTo(map);
+      selDrawRef.current = L.layerGroup().addTo(map);
+
+      /** Перерисовать предпросмотр выделения. */
+      const refreshDraft = () => {
+        const dg = selDrawRef.current;
+        if (!dg) return;
+        dg.clearLayers();
+        const Lx = L;
+        if (selToolRef.current === "circle" && selCenterRef.current) {
+          const [clat, clon] = selCenterRef.current;
+          Lx.circle([clat, clon], { radius: 5, color: "#38bdf8", weight: 1 })
+            .bindTooltip("Радиус: перетащи курсор и кликни ещё раз").addTo(dg);
+        }
+        if (selToolRef.current === "polygon" && selPtsRef.current.length >= 1) {
+          const pts = selPtsRef.current;
+          pts.forEach(([la, lo], i) => {
+            Lx.circleMarker([la, lo], { radius: 4, color: "#38bdf8", fillColor: "#38bdf8", fillOpacity: 1 })
+              .bindTooltip(`Точка ${i + 1}`).addTo(dg);
+          });
+          if (pts.length >= 2) {
+            Lx.polyline(pts, { color: "#38bdf8", weight: 2, dashArray: "4 6" }).addTo(dg);
+          }
+        }
+      };
+
       map.on("click", (e: L.LeafletMouseEvent) => {
+        const tool = selToolRef.current;
+        if (tool === "circle") {
+          if (!selCenterRef.current) {
+            selCenterRef.current = [e.latlng.lat, e.latlng.lng];
+            refreshDraft();
+            return;
+          }
+          const [clat, clon] = selCenterRef.current;
+          const r = haversine(clat, clon, e.latlng.lat, e.latlng.lng);
+          if (r < 50) return; // слишком мелко
+          setSelShape({ kind: "circle", c: [clat, clon], r });
+          selCenterRef.current = null;
+          selDrawRef.current?.clearLayers();
+          setSelTool("none");
+          return;
+        }
+        if (tool === "polygon") {
+          selPtsRef.current = [...selPtsRef.current, [e.latlng.lat, e.latlng.lng]];
+          refreshDraft();
+          return;
+        }
         const mode = pickRef.current;
         if (!mode) return;
         setResults(null);
         const pt = { lat: e.latlng.lat, lon: e.latlng.lng, label: `Точка (${e.latlng.lat.toFixed(3)}, ${e.latlng.lng.toFixed(3)})` };
         if (mode === "A") { setA(pt); setPickMode("B"); }
         else { setB(pt); setPickMode(null); }
+      });
+      map.on("dblclick", (e: L.LeafletMouseEvent) => {
+        if (selToolRef.current !== "polygon") return;
+        L.DomEvent.stop(e.originalEvent);
+        if (selPtsRef.current.length < 3) {
+          selPtsRef.current = [];
+          selDrawRef.current?.clearLayers();
+          return;
+        }
+        setSelShape({ kind: "polygon", pts: [...selPtsRef.current] });
+        selPtsRef.current = [];
+        selDrawRef.current?.clearLayers();
+        setSelTool("none");
+      });
+      map.on("mousemove", (e: L.LeafletMouseEvent) => {
+        if (selToolRef.current === "circle" && selCenterRef.current) {
+          const [clat, clon] = selCenterRef.current;
+          const r = haversine(clat, clon, e.latlng.lat, e.latlng.lng);
+          const dg = selDrawRef.current;
+          if (!dg) return;
+          dg.clearLayers();
+          L.circle([clat, clon], { radius: Math.max(r, 20), color: "#38bdf8", weight: 1.5, dashArray: "4 6", fillOpacity: 0.08 })
+            .addTo(dg);
+          L.circleMarker([clat, clon], { radius: 5, color: "#38bdf8", fillColor: "#38bdf8", fillOpacity: 1 })
+            .addTo(dg);
+        }
       });
       setTimeout(() => map.invalidateSize(), 60);
       mapRef.current = map;
@@ -164,6 +376,12 @@ export default function RouteTab() {
     setRows(null);
     setRegionsLoaded([]);
     setTruncated(false);
+    setSelShape(null);
+    setSelRows(null);
+    setSelTool("none");
+    selCenterRef.current = null;
+    selPtsRef.current = [];
+    selDrawRef.current?.clearLayers();
     try {
       const r = await fetchRoute([pa.lat, pa.lon], [pb.lat, pb.lon]);
       setRoute(r);
@@ -256,42 +474,14 @@ export default function RouteTab() {
   }
 
   // ---- статистика коридора ----
-  const corridor = useMemo(() => {
-    if (!route || !rows) return null;
-    const d = app.dicts;
-    const byHour = Array(24).fill(0);
-    const byMonth = Array(12).fill(0);
-    const seasonCnt = Array(4).fill(0);
-    const weathers = new Map<number, number>();
-    const cats = new Map<number, number>();
-    const brands = new Map<number, number>();
-    let dead = 0, injured = 0, severe = 0;
-    for (const r of rows) {
-      byHour[r[4]]++;
-      byMonth[(r[2] % 100) - 1]++;
-      seasonCnt[seasonOfYm(r[2])]++;
-      weathers.set(r[8], (weathers.get(r[8]) ?? 0) + 1);
-      cats.set(r[6], (cats.get(r[6]) ?? 0) + 1);
-      brands.set(r[11], (brands.get(r[11]) ?? 0) + 1);
-      dead += r[12]; injured += r[13];
-      if (r[5] >= 1) severe++;
-    }
-    const total = rows.length;
-    const mean = total / 24 || 1;
-    const hoursSorted = byHour.map((c, h) => ({ h, c, lift: c / mean })).sort((x, y) => x.lift - y.lift);
-    const top = <T,>(m: Map<T, number>, n: number, key: (k: T) => string): [string, number][] =>
-      [...m.entries()].sort((x, y) => y[1] - x[1]).slice(0, n).map(([k, v]) => [key(k), v]);
-    return {
-      rows, total, dead, injured,
-      severeShare: total ? severe / total : 0,
-      bestHours: hoursSorted.slice(0, 3),
-      worstHours: hoursSorted.slice(-3).reverse(),
-      byHour, byMonth, seasonCnt,
-      topWeathersIdx: [...weathers.entries()].sort((x, y) => y[1] - x[1]).slice(0, 5),
-      topCats: top(cats, 10, (i) => d.cats[i] ?? "—"),
-      topBrands: top(brands, 12, (i) => d.brands[i] ?? "—"),
-    };
-  }, [route, bufferM, rows, app.dicts]);
+  const corridor = useMemo(
+    () => (rows && route ? computeStats(rows, app.dicts) : null),
+    [rows, route, app.dicts],
+  );
+  const selStats = useMemo(
+    () => (selRows && selRows.length ? computeStats(selRows, app.dicts) : null),
+    [selRows, app.dicts],
+  );
 
   const routeTips = useMemo(() => {
     if (!corridor) return [];
@@ -482,9 +672,112 @@ export default function RouteTab() {
                 {tileNotice}
               </div>
             )}
+            {/* Панель инструментов выделения */}
+            <div className="absolute left-3 top-3 z-[600] flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900/85 p-1.5 text-xs shadow-lg backdrop-blur">
+              <span className="px-1.5 text-[10px] uppercase tracking-wider text-slate-500">Выделить</span>
+              <button
+                onClick={() => {
+                  setSelTool(selTool === "circle" ? "none" : "circle");
+                  setSelShape(null);
+                  setSelRows(null);
+                  selCenterRef.current = null;
+                  selPtsRef.current = [];
+                  selDrawRef.current?.clearLayers();
+                }}
+                className={`rounded-lg px-2.5 py-1.5 font-medium transition ${
+                  selTool === "circle" ? "bg-sky-500 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                }`}
+                title="Кругом: клик — центр, второй клик — радиус"
+              >
+                ⭕ Кругом
+              </button>
+              <button
+                onClick={() => {
+                  setSelTool(selTool === "polygon" ? "none" : "polygon");
+                  setSelShape(null);
+                  setSelRows(null);
+                  selCenterRef.current = null;
+                  selPtsRef.current = [];
+                  selDrawRef.current?.clearLayers();
+                }}
+                className={`rounded-lg px-2.5 py-1.5 font-medium transition ${
+                  selTool === "polygon" ? "bg-sky-500 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                }`}
+                title="Свободной линией: клики добавляют вершины, двойной клик завершает"
+              >
+                ✏️ Линией
+              </button>
+              <button
+                onClick={() => {
+                  setSelTool("none");
+                  setSelShape(null);
+                  setSelRows(null);
+                  selCenterRef.current = null;
+                  selPtsRef.current = [];
+                  selDrawRef.current?.clearLayers();
+                }}
+                className="rounded-lg bg-slate-800 px-2.5 py-1.5 font-medium text-slate-400 hover:bg-slate-700 hover:text-slate-200"
+              >
+                ✖ Сброс
+              </button>
+            </div>
+            {selTool === "circle" && (
+              <p className="absolute bottom-3 left-3 z-[600] rounded-lg bg-slate-900/85 px-2.5 py-1.5 text-[11px] text-sky-300 shadow-lg backdrop-blur">
+                Клик — центр круга, второй клик задаёт радиус
+              </p>
+            )}
+            {selTool === "polygon" && (
+              <p className="absolute bottom-3 left-3 z-[600] rounded-lg bg-slate-900/85 px-2.5 py-1.5 text-[11px] text-sky-300 shadow-lg backdrop-blur">
+                Клики — вершины, <b>двойной клик</b> завершает область
+              </p>
+            )}
           </div>
         </Card>
       </div>
+
+      {selShape && selStats && (
+        <Card
+          title={`📊 Статистика выделенной области · ${selShape.kind === "circle" ? `круг ≈ ${(selShape.r / 1000).toFixed(1)} км` : "полигон"}`}
+          subtitle={`${selRows!.length.toLocaleString("ru-RU")} ДТП внутри области`}
+        >
+          <div className="mb-3 flex flex-wrap gap-3 text-sm">
+            <span className="rounded-lg bg-slate-800/60 px-3 py-1.5">ДТП: <b className="text-white">{selStats.total.toLocaleString("ru-RU")}</b></span>
+            <span className="rounded-lg bg-slate-800/60 px-3 py-1.5">Погибли: <b className="text-red-400">{selStats.dead}</b></span>
+            <span className="rounded-lg bg-slate-800/60 px-3 py-1.5">Ранены: <b className="text-amber-300">{selStats.injured}</b></span>
+            <span className="rounded-lg bg-slate-800/60 px-3 py-1.5">Доля тяжёлых: <b className="text-white">{(selStats.severeShare * 100).toFixed(0)}%</b></span>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card title="Типы ДТП в выделении" className="!p-4">
+              <EChart
+                option={{
+                  tooltip: {},
+                  grid: { left: 170, right: 30, top: 8, bottom: 24 },
+                  xAxis: { type: "value" },
+                  yAxis: { type: "category", data: selStats.topCats.map((c) => c[0]).reverse().map((s) => (s.length > 30 ? s.slice(0, 29) + "…" : s)), axisLabel: { fontSize: 11 } },
+                  series: [{ type: "bar", data: selStats.topCats.map((c) => c[1]).reverse(), itemStyle: { color: SEV_COLORS[1], borderRadius: [0, 6, 6, 0] }, label: { show: true, position: "right", color: "#94a3b8" } }],
+                }}
+                height={240}
+              />
+            </Card>
+            <Card title="Марки в выделении" className="!p-4">
+              {selStats.topBrands.length > 0 ? (
+                <EChart
+                  option={{
+                    tooltip: {},
+                    grid: { left: 150, right: 30, top: 8, bottom: 24 },
+                    xAxis: { type: "value" },
+                    yAxis: { type: "category", data: selStats.topBrands.map((c) => c[0]).reverse(), axisLabel: { fontSize: 11 } },
+                    series: [{ type: "bar", data: selStats.topBrands.map((c) => c[1]).reverse(), itemStyle: { color: theme.accentMain, borderRadius: [0, 6, 6, 0] }, label: { show: true, position: "right", color: "#94a3b8" } }],
+                  }}
+                  height={240}
+                />
+              ) : (
+                <p className="text-sm text-slate-500">Нет данных об автомобилях.</p>
+              )}
+            </Card>
+          </div>
+        </Card>
+      )}
 
       {route && (
         <Card title="Статистика коридора">

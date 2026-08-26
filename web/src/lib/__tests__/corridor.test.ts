@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterCorridor, haversine, pointToSegmentMeters } from "../corridor";
+import { filterCorridor, haversine, pointInCircle, pointInPolygon, pointToSegmentMeters } from "../corridor";
 import type { PointRow } from "../types";
 
 function row(lat: number, lon: number): PointRow {
@@ -63,5 +63,33 @@ describe("filterCorridor", () => {
     const rows = [row(56, 12), row(55.0005, 10.0), row(57, 13)];
     const kept = filterCorridor(rows, line, 300);
     expect(kept.map((r) => r[0])).toEqual([55.0005]);
+  });
+});
+
+describe("pointInPolygon", () => {
+  // квадрат 55.0–55.1 × 10.0–10.1
+  const sq: [number, number][] = [
+    [55.0, 10.0],
+    [55.0, 10.1],
+    [55.1, 10.1],
+    [55.1, 10.0],
+  ];
+
+  it("внутри и снаружи квадрата", () => {
+    expect(pointInPolygon(55.05, 10.05, sq)).toBe(true);
+    expect(pointInPolygon(55.2, 10.05, sq)).toBe(false);
+    expect(pointInPolygon(55.05, 9.9, sq)).toBe(false);
+  });
+
+  it("меньше 3 вершин — false", () => {
+    expect(pointInPolygon(55.05, 10.05, [[55, 10], [55, 10.1]])).toBe(false);
+  });
+});
+
+describe("pointInCircle", () => {
+  it("точка внутри и снаружи круга радиусом 100 км", () => {
+    const c: [number, number] = [55.0, 10.0];
+    expect(pointInCircle(55.5, 10.0, c, 100_000)).toBe(true); // ~55.5 км к северу
+    expect(pointInCircle(56.0, 10.0, c, 100_000)).toBe(false); // ~111 км
   });
 });

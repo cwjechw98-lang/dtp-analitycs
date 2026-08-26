@@ -15,7 +15,14 @@ const ALIASES: Record<string, string> = {
   ЖИГУЛИ: "ВАЗ", МАЗДА: "MAZDA", МИЦУБИСИ: "MITSUBISHI", СУЗУКИ: "SUZUKI",
   СУБАРУ: "SUBARU", РЕНО: "RENAULT", ПЕЖО: "PEUGEOT", СИТРОЕН: "CITROEN",
   ФОРД: "FORD", ШЕВРОЛЕ: "CHEVROLET", ДЭУ: "DAEWOO", ОПЕЛЬ: "OPEL",
-  КИА: "KIA", КАМАЗ: "КАМАЗ",
+  КИА: "KIA", КАМАЗ: "КАМАЗ", ВОЛЬВО: "VOLVO", ХОНДА: "HONDA",
+  // китайские марки
+  ХАВАЛ: "HAVAL", ХАВАЙЛ: "HAVAL", ЧЕРИ: "CHERY", ДЖИЛИ: "GEELY", ГИЛИ: "GEELY",
+  ЧАНГАН: "CHANGAN", ДЖАК: "JAC", БИВАЙДИ: "BYD", БИД: "BYD", ФАВ: "FAW",
+  ОМОДА: "OMODA", ЭКСИД: "EXEED", ЭКСЕД: "EXEED", ВЕЛИКИЙ: "GREAT WALL",
+  ГРЕЙТ: "GREAT WALL", ДЖЕТУР: "JETOUR", ТАНК: "TANK", ЛИФАН: "LIFAN",
+  // корейские
+  ССАНГ: "SSANGYONG", ССАНГЁНГ: "SSANGYONG", ГЕНЕЗИС: "GENESIS", ДЖЕНЕСИС: "GENESIS",
 };
 
 const SEV_NAMES = ["Лёгкие", "Тяжёлые", "С погибшими"];
@@ -30,6 +37,7 @@ export default function FleetTab() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>("total");
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -43,14 +51,31 @@ export default function FleetTab() {
   /** Национальная таблица виновник/жертва — база для рейтинга и сравнений */
   const nationalRows = useMemo(() => app.national.culprits.brands, [app.national]);
 
+  /** Полный список ВСЕХ марок из brands.json (376) — с виновником/жертвой/тяжестью. */
+  const allBrands = useMemo<CulpritBrand[]>(() => {
+    if (!brandsFile) return [];
+    const rows: CulpritBrand[] = [];
+    for (const [brand, d] of Object.entries(brandsFile.brands)) {
+      rows.push({
+        brand,
+        culprit: d.culprit,
+        victim: d.victim,
+        total: d.total,
+        aggr: d.total > 0 ? d.culprit / d.total : 0,
+      });
+    }
+    return rows;
+  }, [brandsFile]);
+
   const baselineShare = useMemo(() => {
+    const src = allBrands.length ? allBrands : nationalRows;
     let c = 0, v = 0;
-    for (const b of nationalRows) {
+    for (const b of src) {
       c += b.culprit;
       v += b.victim;
     }
     return c + v > 0 ? c / (c + v) : 0.5;
-  }, [nationalRows]);
+  }, [allBrands, nationalRows]);
 
   const toggleBrand = (name: string) => {
     setSelected((s) =>
@@ -110,7 +135,7 @@ export default function FleetTab() {
       <SearchResults
         query={query}
         brandsFile={brandsFile}
-        nationalRows={nationalRows}
+        nationalRows={allBrands}
         baselineShare={baselineShare}
         selected={selected}
         onToggle={toggleBrand}
@@ -119,9 +144,19 @@ export default function FleetTab() {
 
       {selected.length === 0 && query.trim().length === 0 && (
         <>
-          <Card title="Рейтинг марок" subtitle={`Кликни на марку, чтобы добавить к сравнению · сортировка: ${sortTitle(sortKey)} · базовая доля виновников ${Math.round(baselineShare * 100)}%`}>
+          <Card
+            title="Рейтинг марок"
+            subtitle={`Кликни на марку, чтобы добавить к сравнению · сортировка: ${sortTitle(sortKey)} · базовая доля виновников ${Math.round(baselineShare * 100)}%`}
+            aside={
+              <div className="flex gap-1 rounded-lg bg-slate-800/70 p-1">
+                <button onClick={() => setShowAll(false)} className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${!showAll ? "text-white" : "text-slate-400 hover:text-slate-200"}`} style={!showAll ? { backgroundColor: "var(--accent)" } : undefined}>Топ-25</button>
+                <button onClick={() => setShowAll(true)} className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${showAll ? "text-white" : "text-slate-400 hover:text-slate-200"}`} style={showAll ? { backgroundColor: "var(--accent)" } : undefined}>Все марки</button>
+              </div>
+            }
+          >
             <RankingTable
-              rows={nationalRows}
+              rows={allBrands}
+              showAll={showAll}
               sortKey={sortKey}
               setSortKey={setSortKey}
               selected={selected}
@@ -132,12 +167,12 @@ export default function FleetTab() {
       )}
 
       {selected.length >= 2 && (
-        <CompareChart selected={selected} rows={nationalRows} brandsFile={brandsFile} />
+        <CompareChart selected={selected} rows={allBrands} brandsFile={brandsFile} />
       )}
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Марки автомобилей в ДТП" subtitle={app.scope === "ALL" ? "Топ-25 марок первого ТС" : "Топ марок региона"}>
-          <TopBrandsChart accent={theme.accentMain} />
+        <Card title="Марки автомобилей в ДТП" subtitle={app.scope === "ALL" ? "Марки первого ТС" : "Топ марок региона"}>
+          <TopBrandsChart accent={theme.accentMain} allBrands={allBrands} />
         </Card>
         <Card title="Стаж вождения и тяжесть ДТП" subtitle="Национальные данные">
           <ExperienceCharts />
@@ -313,12 +348,14 @@ function SevDonut({ sev, total }: { sev: [number, number, number]; total: number
 /* ============================ рейтинг ============================ */
 function RankingTable({
   rows,
+  showAll,
   sortKey,
   setSortKey,
   selected,
   onToggle,
 }: {
   rows: CulpritBrand[];
+  showAll: boolean;
   sortKey: SortKey;
   setSortKey: (k: SortKey) => void;
   selected: string[];
@@ -330,8 +367,8 @@ function RankingTable({
     if (sortKey === "aggr") arr.sort((a, b) => b.aggr - a.aggr);
     if (sortKey === "culpritShare")
       arr.sort((a, b) => b.culprit / (b.culprit + b.victim) - a.culprit / (a.culprit + a.victim));
-    return arr.slice(0, 20);
-  }, [rows, sortKey]);
+    return showAll ? arr : arr.slice(0, 25);
+  }, [rows, sortKey, showAll]);
 
   const th = (key: SortKey, label: string) => (
     <th
@@ -481,24 +518,30 @@ function CompareChart({
 }
 
 /* ============================ прежние блоки ============================ */
-function TopBrandsChart({ accent }: { accent: string }) {
+function TopBrandsChart({ accent, allBrands }: { accent: string; allBrands: CulpritBrand[] }) {
   const app = useApp();
+  const [limit, setLimit] = useState<25 | 40 | "all">(40);
   const vehicles = useMemo(() => {
     if (app.scope !== "ALL" && app.regionFile) {
       const m = new Map<number, number>();
       for (const r of app.regionFile.rows) if (r[11] >= 0) m.set(r[11], (m.get(r[11]) ?? 0) + 1);
       return [...m.entries()]
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 25)
+        .slice(0, 40)
         .map(([i, c]) => ({ name: app.dicts.brands[i] ?? "—", count: c }));
     }
-    return app.national.vehicles.top_brands;
-  }, [app.scope, app.regionFile, app.dicts.brands, app.national]);
+    // национальный режим: берём полный список марок из brands.json
+    const src = allBrands.length
+      ? allBrands.map((b) => ({ name: b.brand, count: b.total }))
+      : app.national.vehicles.top_brands.map((b) => ({ name: b.name, count: b.count }));
+    const sorted = [...src].sort((a, b) => b.count - a.count);
+    return (limit === "all" ? sorted : sorted.slice(0, limit));
+  }, [app.scope, app.regionFile, app.dicts.brands, app.national, allBrands, limit]);
 
   const option: echarts.EChartsOption = useMemo(
     () => ({
       tooltip: { trigger: "axis" },
-      grid: { left: 130, right: 60, top: 8, bottom: 24 },
+      grid: { left: 130, right: 60, top: 8, bottom: 8 },
       xAxis: { type: "value" },
       yAxis: { type: "category", data: vehicles.map((b) => b.name).reverse(), axisLabel: { fontSize: 11 } },
       series: [{
@@ -510,7 +553,29 @@ function TopBrandsChart({ accent }: { accent: string }) {
     }),
     [vehicles, accent],
   );
-  return <EChart option={option} height={420} />;
+  const height = limit === "all" ? Math.max(420, vehicles.length * 22) : 440;
+
+  return (
+    <div>
+      {app.scope === "ALL" && (
+        <div className="mb-2 flex gap-1">
+          {([25, 40, "all"] as const).map((n) => (
+            <button
+              key={String(n)}
+              onClick={() => setLimit(n)}
+              className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
+                limit === n ? "text-white" : "bg-slate-800 text-slate-400 hover:text-slate-200"
+              }`}
+              style={limit === n ? { backgroundColor: "var(--accent)" } : undefined}
+            >
+              {n === "all" ? "Все" : `Топ-${n}`}
+            </button>
+          ))}
+        </div>
+      )}
+      <EChart option={option} height={height} />
+    </div>
+  );
 }
 
 function ExperienceCharts() {

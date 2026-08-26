@@ -646,10 +646,10 @@ def main() -> int:
     top_brands = [
         {"name": b, "count": c,
          "severe_share": round((acc.brand_sev[b][1] + acc.brand_sev[b][2]) / c, 3)}
-        for b, c in acc.brand_cnt.most_common(25)
+        for b, c in acc.brand_cnt.most_common(40)
     ]
     culprits_brands = []
-    for b, cnt in acc.culprit_by_brand.most_common(30):
+    for b, cnt in acc.culprit_by_brand.most_common(45):
         vic = acc.victim_by_brand.get(b, 0)
         tot = cnt + vic
         culprits_brands.append({

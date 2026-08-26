@@ -14,12 +14,14 @@ export const fadeUp = {
 export function Card({
   title,
   subtitle,
+  aside,
   children,
   className = "",
   delay = 0,
 }: {
   title?: ReactNode;
   subtitle?: ReactNode;
+  aside?: ReactNode;
   children: ReactNode;
   className?: string;
   delay?: number;
@@ -33,10 +35,13 @@ export function Card({
       whileHover={{ borderColor: "rgba(249,115,22,0.35)" }}
       className={`glass rounded-2xl border border-slate-800/80 p-4 sm:p-5 ${className}`}
     >
-      {title && (
-        <header className="mb-3">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-100">{title}</h3>
-          {subtitle && <p className="mt-0.5 text-xs text-slate-400">{subtitle}</p>}
+      {(title || aside) && (
+        <header className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-100">{title}</h3>
+            {subtitle && <p className="mt-0.5 text-xs text-slate-400">{subtitle}</p>}
+          </div>
+          {aside && <div className="shrink-0">{aside}</div>}
         </header>
       )}
       {children}

@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: #070b14;
+  color: #cbd5e1;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #0b1220;
+}
+::-webkit-scrollbar-thumb {
+  background: #26324b;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #33436a;
+}
+
+/* всплывающие подсказки Leaflet в тёмной теме */
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: #101828;
+  color: #e2e8f0;
+  border-radius: 12px;
+}
+.leaflet-popup-content {
+  margin: 12px 14px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.leaflet-container {
+  background: #0d1526;
+  font-family: inherit;
+}
+.marker-cluster-small,
+.marker-cluster-medium,
+.marker-cluster-large {
+  background-color: rgba(234, 88, 12, 0.25);
+}
+.marker-cluster-small div,
+.marker-cluster-medium div,
+.marker-cluster-large div {
+  background-color: rgba(234, 88, 12, 0.75);
+  color: #fff;
+  font-weight: 600;
+}

@@ -1,0 +1,23 @@
+# --- данные ---
+data/raw/
+*.geojson
+*.geojson.zip
+
+# --- node ---
+node_modules/
+web/dist/
+*.local
+
+# --- логи и мусор ---
+*.log
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+
+# --- IDE ---
+.idea/
+.vscode/
+
+# --- временные токены ---
+gh_dtp_token.txt

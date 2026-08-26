@@ -1,0 +1,53 @@
+name: Update data (weekly)
+
+on:
+  schedule:
+    # каждый понедельник в 04:30 UTC
+    - cron: "30 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pipeline deps
+        run: pip install -r pipeline/requirements.txt
+
+      - name: Download fresh data
+        run: python download.py
+        working-directory: pipeline
+
+      - name: Validate schema
+        run: python validate.py
+        working-directory: pipeline
+
+      - name: Build aggregates and tips
+        run: |
+          python build_aggregates.py
+          python build_recommendations.py
+        working-directory: pipeline
+
+      - name: Commit new datasets if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web/public/data
+          if git diff --cached --quiet; then
+            echo "Данные не изменились"
+          else
+            git commit -m "data: обновление выгрузки dtp-stat ($(date -u +%Y-%m-%d))"
+            git push
+          fi

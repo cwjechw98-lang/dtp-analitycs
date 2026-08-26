@@ -23,11 +23,6 @@ interface Pt { lat: number; lon: number; label: string }
 
 const PRESETS: { name: string; a: Pt; b: Pt }[] = [
   {
-    name: "Омск → Тобольск (трасса на Тюмень)",
-    a: { lat: 54.9885, lon: 73.3242, label: "Омск" },
-    b: { lat: 58.1998, lon: 68.2513, label: "Тобольск" },
-  },
-  {
     name: "Омск → Исилькуль (трасса на Тюмень)",
     a: { lat: 54.9885, lon: 73.3242, label: "Омск" },
     b: { lat: 54.9136, lon: 71.2685, label: "Исилькуль" },

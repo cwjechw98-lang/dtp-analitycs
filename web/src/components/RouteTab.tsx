@@ -7,6 +7,8 @@ import { Badge, Card } from "./ui";
 import { filterCorridor } from "../lib/corridor";
 import { fetchRoute, geocode, type GeoResult, type OsrmRoute } from "../lib/osrm";
 import { seasonOfYm, todOf } from "../lib/time";
+import { createTileLayer, savedProviderId, saveProviderId } from "../lib/mapTiles";
+import TileSwitcher from "./TileSwitcher";
 import type * as echarts from "echarts";
 
 interface Pt { lat: number; lon: number; label: string }
@@ -65,6 +67,12 @@ export default function RouteTab() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const layersRef = useRef<any>(null);
   const pickRef = useRef<"A" | "B" | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const [tileId, setTileId] = useState(savedProviderId);
+  const changeTiles = (id: string) => {
+    setTileId(id);
+    saveProviderId(id);
+  };
 
   useEffect(() => { pickRef.current = pickMode; }, [pickMode]);
 
@@ -76,10 +84,7 @@ export default function RouteTab() {
       const L = await import("leaflet");
       if (destroyed || !node) return;
       const map = L.map(node, { preferCanvas: true }).setView([56, 44], 5);
-      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        maxZoom: 18,
-      }).addTo(map);
+      createTileLayer(savedProviderId()).addTo(map);
       const group = L.layerGroup().addTo(map);
       map.on("click", (e: L.LeafletMouseEvent) => {
         const mode = pickRef.current;
@@ -92,6 +97,7 @@ export default function RouteTab() {
       setTimeout(() => map.invalidateSize(), 60);
       mapRef.current = map;
       layersRef.current = group;
+      setMapReady(true);
     })();
     return () => {
       destroyed = true;
@@ -99,6 +105,20 @@ export default function RouteTab() {
       mapRef.current = null;
     };
   }, []);
+
+  // смена провайдера тайлов на мини-карте
+  useEffect(() => {
+    (async () => {
+      if (!mapReady) return;
+      const L = await import("leaflet");
+      const map = mapRef.current as L.Map | null;
+      if (!map) return;
+      map.eachLayer((l) => {
+        if (l instanceof L.TileLayer) map.removeLayer(l);
+      });
+      createTileLayer(tileId).addTo(map);
+    })();
+  }, [tileId, mapReady]);
 
   useEffect(() => {
     (async () => {
@@ -419,6 +439,7 @@ export default function RouteTab() {
 
         <Card className="overflow-hidden !p-0">
           <div ref={mapEl} className="h-[420px] w-full lg:h-full lg:min-h-[520px]" />
+          <TileSwitcher value={tileId} onChange={changeTiles} />
         </Card>
       </div>
 

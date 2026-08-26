@@ -4,8 +4,10 @@ import "leaflet.markercluster";
 import { useApp } from "../state/AppState";
 import { geohashDecode } from "../lib/geo";
 import { SEV_COLORS } from "../lib/data";
+import { createTileLayer, savedProviderId, saveProviderId } from "../lib/mapTiles";
 import { deriveRegion } from "../lib/derive";
 import { Badge, Card } from "./ui";
+import TileSwitcher from "./TileSwitcher";
 
 const MONTHS = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
 const TOD_NAMES = ["Ночь", "Утро", "День", "Вечер"];
@@ -37,6 +39,12 @@ function HeatMapMode() {
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [cells, setCells] = useState<{ lat: number; lon: number; total: number; severe: number }[]>([]);
   const [tileErrors, setTileErrors] = useState(0);
+  const [tileId, setTileId] = useState(savedProviderId);
+  const changeTiles = (id: string) => {
+    setTileId(id);
+    saveProviderId(id);
+    setTileErrors(0);
+  };
 
   useEffect(() => {
     app
@@ -61,12 +69,7 @@ function HeatMapMode() {
   useEffect(() => {
     if (state !== "ready" || !el.current || mapRef.current) return;
     const map = L.map(el.current, { preferCanvas: true, minZoom: 2 }).setView([58, 60], 3);
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      maxZoom: 18,
-    })
-      .on("tileerror", () => setTileErrors((n) => n + 1))
-      .addTo(map);
+    const tiles = createTileLayer(tileId, () => setTileErrors((n) => n + 1)).addTo(map);
 
     const maxTotal = cells.length ? cells[0].total : 1;
     for (const c of cells) {
@@ -86,7 +89,18 @@ function HeatMapMode() {
       map.remove();
       mapRef.current = null;
     };
+    // tileId обрабатывается отдельным эффектом ниже
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, cells]);
+
+  // смена провайдера без пересоздания точек
+  const tilesRef = useRef<L.TileLayer | null>(null);
+  useEffect(() => {
+    const map = mapRef.current as L.Map | null;
+    if (!map || state !== "ready") return;
+    tilesRef.current?.remove();
+    tilesRef.current = createTileLayer(tileId, () => setTileErrors((n) => n + 1)).addTo(map);
+  }, [tileId, state]);
 
   return (
     <div className="space-y-3">
@@ -99,6 +113,7 @@ function HeatMapMode() {
       </Card>
       <div className="relative overflow-hidden rounded-2xl border border-slate-800">
         <div ref={el} className="h-[74vh] min-h-[440px] w-full" />
+        <TileSwitcher value={tileId} onChange={changeTiles} />
         {state === "loading" && (
           <div className="absolute inset-0 z-[500] flex items-center justify-center bg-slate-900/70 text-sm text-slate-300">
             Загружаем тепловую карту страны…
@@ -140,6 +155,11 @@ function RegionMapMode() {
   const [cat, setCat] = useState("all");
   const [weather, setWeather] = useState("all");
   const [tod, setTod] = useState(-1);
+  const [tileId, setTileId] = useState(savedProviderId);
+  const changeTiles = (id: string) => {
+    setTileId(id);
+    saveProviderId(id);
+  };
 
   const effYearFrom = yearFrom ?? Math.max(yMinDefault, yMaxDefault - DEFAULT_YEAR_WINDOW + 1);
   const effYearTo = yearTo ?? yMaxDefault;
@@ -164,10 +184,7 @@ function RegionMapMode() {
     if (!el.current || mapRef.current || !app.regionFile) return;
     const b = app.regionFile.bbox;
     const map = L.map(el.current, { preferCanvas: true });
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      maxZoom: 18,
-    }).addTo(map);
+    createTileLayer(tileId).addTo(map);
     map.fitBounds([[b[0], b[2]], [b[1], b[3]]]);
     const cluster = L.markerClusterGroup({
       chunkedLoading: true,
@@ -185,7 +202,17 @@ function RegionMapMode() {
       clusterRef.current = null;
       setReady(false);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [app.regionFile]);
+
+  // смена провайдера без пересоздания кластеров
+  const tilesRef2 = useRef<L.TileLayer | null>(null);
+  useEffect(() => {
+    const map = mapRef.current as L.Map | null;
+    if (!map || !ready) return;
+    tilesRef2.current?.remove();
+    tilesRef2.current = createTileLayer(tileId).addTo(map);
+  }, [tileId, ready]);
 
   const filtered = useMemo(
     () =>
@@ -362,6 +389,7 @@ function RegionMapMode() {
 
       <div className="relative overflow-hidden rounded-2xl border border-slate-800">
         <div ref={el} className="h-[70vh] min-h-[420px] w-full" />
+        <TileSwitcher value={tileId} onChange={changeTiles} />
         {(!ready || app.regionLoading) && (
           <div className="absolute inset-0 z-[500] flex items-center justify-center bg-slate-900/70 text-sm text-slate-300">
             Загружаем точки региона…

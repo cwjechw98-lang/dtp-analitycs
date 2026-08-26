@@ -7,7 +7,14 @@ import { Badge, Card } from "./ui";
 import { filterCorridor } from "../lib/corridor";
 import { fetchRoute, geocode, type GeoResult, type OsrmRoute } from "../lib/osrm";
 import { seasonOfYm, todOf } from "../lib/time";
-import { createTileLayer, savedProviderId, saveProviderId } from "../lib/mapTiles";
+import {
+  createTileLayer,
+  DEFAULT_PROVIDER,
+  savedProviderId,
+  saveProviderId,
+  TILE_PROVIDERS,
+  tileWatchdog,
+} from "../lib/mapTiles";
 import TileSwitcher from "./TileSwitcher";
 import type * as echarts from "echarts";
 
@@ -69,9 +76,11 @@ export default function RouteTab() {
   const pickRef = useRef<"A" | "B" | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [tileId, setTileId] = useState(savedProviderId);
+  const [tileNotice, setTileNotice] = useState<string | null>(null);
   const changeTiles = (id: string) => {
     setTileId(id);
     saveProviderId(id);
+    setTileNotice(null);
   };
 
   useEffect(() => { pickRef.current = pickMode; }, [pickMode]);
@@ -84,7 +93,7 @@ export default function RouteTab() {
       const L = await import("leaflet");
       if (destroyed || !node) return;
       const map = L.map(node, { preferCanvas: true }).setView([56, 44], 5);
-      createTileLayer(savedProviderId()).addTo(map);
+      createTileLayer(DEFAULT_PROVIDER).addTo(map);
       const group = L.layerGroup().addTo(map);
       map.on("click", (e: L.LeafletMouseEvent) => {
         const mode = pickRef.current;
@@ -116,8 +125,16 @@ export default function RouteTab() {
       map.eachLayer((l) => {
         if (l instanceof L.TileLayer) map.removeLayer(l);
       });
-      createTileLayer(tileId).addTo(map);
+      const wd = tileWatchdog(() => {
+        if (tileId !== DEFAULT_PROVIDER) {
+          const name = TILE_PROVIDERS.find((p) => p.id === tileId)?.name ?? tileId;
+          setTileNotice(`Провайдер «${name}» не отвечает — переключились на OSM.`);
+          changeTiles(DEFAULT_PROVIDER);
+        }
+      });
+      createTileLayer(tileId, { error: wd.onError, load: wd.onLoad }).addTo(map);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tileId, mapReady]);
 
   useEffect(() => {
@@ -455,8 +472,16 @@ export default function RouteTab() {
         </Card>
 
         <Card className="overflow-hidden !p-0">
-          <div ref={mapEl} className="h-[420px] w-full lg:h-full lg:min-h-[520px]" />
-          <TileSwitcher value={tileId} onChange={changeTiles} />
+          {/* Фиксированная высота: h-full внутри грида вызывал бесконечное растягивание страницы */}
+          <div className="relative">
+            <div ref={mapEl} className="h-[440px] w-full sm:h-[560px]" />
+            <TileSwitcher value={tileId} onChange={changeTiles} />
+            {tileNotice && (
+              <div className="absolute left-3 top-3 z-[600] max-w-[300px] rounded-xl border border-amber-500/40 bg-amber-500/15 px-3 py-2 text-xs text-amber-100 backdrop-blur">
+                {tileNotice}
+              </div>
+            )}
+          </div>
         </Card>
       </div>
 

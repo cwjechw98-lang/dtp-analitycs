@@ -10,13 +10,35 @@ export interface TileProvider {
 }
 
 /**
- * Провайдеры растровых тайлов. CARTO работает на глобальном CDN и заметно
- * быстрее публичного tile.openstreetmap.org; тёмная тема совпадает с дизайном.
+ * Провайдеры растровых тайлов, все без API-ключей.
+ * По умолчанию — официальный OSM: стабильный и проверенный.
+ * CARTO быстрый, но у части провайдеров не грузится, поэтому только опция.
  */
 export const TILE_PROVIDERS: TileProvider[] = [
   {
-    id: "carto-dark",
+    id: "osm",
+    name: "OSM",
+    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19,
+  },
+  {
+    id: "esri-gray",
     name: "Тёмная",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles © Esri — Source: Esri, Garmin, HERE, FAO, NOAA",
+    maxZoom: 16,
+  },
+  {
+    id: "esri-sat",
+    name: "Спутник",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics",
+    maxZoom: 19,
+  },
+  {
+    id: "carto-dark",
+    name: "CARTO",
     url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
     subdomains: "abcd",
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
@@ -30,30 +52,20 @@ export const TILE_PROVIDERS: TileProvider[] = [
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
     maxZoom: 20,
   },
-  {
-    id: "osm",
-    name: "OSM",
-    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    maxZoom: 19,
-  },
-  {
-    id: "esri-sat",
-    name: "Спутник",
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    attribution: "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics",
-    maxZoom: 19,
-  },
 ];
+
+export const DEFAULT_PROVIDER = "osm";
 
 const LS_KEY = "dtp_tile_provider";
 
 export function savedProviderId(): string {
   try {
     const v = localStorage.getItem(LS_KEY);
-    return TILE_PROVIDERS.some((p) => p.id === v) ? (v as string) : "carto-dark";
+    // миграция: CARTO раньше был дефолтом и у части пользователей не грузился
+    if (v && v.startsWith("carto")) return DEFAULT_PROVIDER;
+    return TILE_PROVIDERS.some((p) => p.id === v) ? (v as string) : DEFAULT_PROVIDER;
   } catch {
-    return "carto-dark";
+    return DEFAULT_PROVIDER;
   }
 }
 
@@ -68,7 +80,7 @@ export function saveProviderId(id: string): void {
 /** Создаёт слой тайлов выбранного провайдера. */
 export function createTileLayer(
   providerId: string,
-  onError?: () => void,
+  handlers?: { error?: () => void; load?: () => void },
 ): L.TileLayer {
   const p = TILE_PROVIDERS.find((x) => x.id === providerId) ?? TILE_PROVIDERS[0];
   const layer = L.tileLayer(p.url, {
@@ -78,6 +90,32 @@ export function createTileLayer(
     detectRetina: false,
     crossOrigin: true,
   });
-  if (onError) layer.on("tileerror", onError);
+  if (handlers?.error) layer.on("tileerror", handlers.error);
+  if (handlers?.load) layer.on("tileload", handlers.load);
   return layer;
+}
+
+/**
+ * Сторожевой таймер провайдера: если пошла серия ошибок тайлов и ни один
+ * не загрузился — вызываем onGiveUp() один раз (автооткат на OSM).
+ */
+export function tileWatchdog(onGiveUp: () => void): {
+  onLoad: () => void;
+  onError: () => void;
+} {
+  let loads = 0;
+  let errors = 0;
+  let fired = false;
+  return {
+    onLoad() {
+      loads++;
+    },
+    onError() {
+      errors++;
+      if (!fired && errors >= 8 && loads === 0) {
+        fired = true;
+        onGiveUp();
+      }
+    },
+  };
 }

@@ -36,6 +36,10 @@ const PRESETS: { name: string; a: Pt; b: Pt }[] = [
 
 const MONTHS = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
 const SEASONS = ["Зима", "Весна", "Лето", "Осень"];
+/** Бюджет строк для коридора: больше в память не берём, чтобы не подвешивать вкладку. */
+const MAX_ROUTE_ROWS = 800_000;
+/** Максимум файлов регионов на один маршрут. */
+const MAX_ROUTE_REGIONS = 10;
 
 export default function RouteTab() {
   const app = useApp();
@@ -44,6 +48,7 @@ export default function RouteTab() {
   const [route, setRoute] = useState<OsrmRoute | null>(null);
   const [rows, setRows] = useState<PointRow[] | null>(null);
   const [regionsLoaded, setRegionsLoaded] = useState<string[]>([]);
+  const [truncated, setTruncated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pickMode, setPickMode] = useState<"A" | "B" | null>(null);
@@ -120,6 +125,7 @@ export default function RouteTab() {
     setError(null);
     setRows(null);
     setRegionsLoaded([]);
+    setTruncated(false);
     try {
       const r = await fetchRoute([pa.lat, pa.lon], [pb.lat, pb.lon]);
       setRoute(r);
@@ -132,15 +138,31 @@ export default function RouteTab() {
           !(rg.bbox[0] > bb.la1 || rg.bbox[1] < bb.la0 || rg.bbox[2] > bb.lo1 || rg.bbox[3] < bb.lo0),
       );
       hit.sort((x, y) => y.total - x.total);
-      const chosen = hit.slice(0, 12); // ограничиваем объём загрузки
+      const chosen = hit.slice(0, MAX_ROUTE_REGIONS); // ограничиваем объём загрузки
+      const MARGIN = 0.35; // ° запаса вокруг bbox маршрута при предфильтре строк
       let acc: PointRow[] = [];
+      let truncated = false;
       for (const rg of chosen) {
         const f = await app.loadRegion(rg.slug);
-        acc = acc.concat(f.rows);
+        // дешёвый предфильтр прямоугольником — режем объём до коридорного расчёта
+        for (const r of f.rows) {
+          if (
+            r[0] >= bb.la0 - MARGIN && r[0] <= bb.la1 + MARGIN &&
+            r[1] >= bb.lo0 - MARGIN && r[1] <= bb.lo1 + MARGIN
+          ) {
+            acc.push(r);
+          }
+        }
         setRegionsLoaded((s) => [...s, rg.name]);
+        if (acc.length >= MAX_ROUTE_ROWS) {
+          truncated = true;
+          break;
+        }
       }
+      if (truncated) acc = acc.slice(0, MAX_ROUTE_ROWS);
       const inCorridor = filterCorridor(acc, r.geometry, bufferM);
       setRows(inCorridor);
+      setTruncated(truncated);
     } catch (e) {
       setRoute(null);
       setError(
@@ -376,6 +398,13 @@ export default function RouteTab() {
             {loading && regionsLoaded.length > 0 && (
               <p className="text-[11px] leading-snug text-slate-500">
                 Загружены данные: {regionsLoaded.join(", ")}…
+              </p>
+            )}
+            {truncated && !loading && (
+              <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-[11px] leading-snug text-amber-200 ring-1 ring-amber-500/30">
+                ⚡ Маршрут очень длинный: статистика собрана по первым ~
+                {(MAX_ROUTE_ROWS / 1000).toFixed(0)} тыс. ближайших к трассе записей.
+                Для сверхдлинных маршрутов разбей путь на этапы — точность вырастет.
               </p>
             )}
 

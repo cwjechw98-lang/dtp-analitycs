@@ -10,6 +10,10 @@ import { Badge, Card } from "./ui";
 const MONTHS = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
 const TOD_NAMES = ["Ночь", "Утро", "День", "Вечер"];
 const MAX_HEAT_DOTS = 14000;
+/** Жёсткий потолок точек на карте региона — выше начинаются тормоза интерфейса. */
+const MAX_REGION_MARKERS = 20000;
+/** Сколько лет показывать по умолчанию, чтобы карта открывалась мгновенно. */
+const DEFAULT_YEAR_WINDOW = 1;
 
 function todOf(hour: number): number {
   if (hour >= 23 || hour < 6) return 0;
@@ -129,17 +133,32 @@ function RegionMapMode() {
   const yMinDefault = years[0] ?? 2015;
   const yMaxDefault = years[years.length - 1] ?? new Date().getFullYear();
 
-  const [yearFrom, setYearFrom] = useState(yMinDefault);
-  const [yearTo, setYearTo] = useState(yMaxDefault);
+  /** По умолчанию — только последний год: карта открывается без тормозов. */
+  const [yearFrom, setYearFrom] = useState<number | null>(null);
+  const [yearTo, setYearTo] = useState<number | null>(null);
   const [sevSel, setSevSel] = useState<boolean[]>([true, true, true]);
   const [cat, setCat] = useState("all");
   const [weather, setWeather] = useState("all");
   const [tod, setTod] = useState(-1);
 
+  const effYearFrom = yearFrom ?? Math.max(yMinDefault, yMaxDefault - DEFAULT_YEAR_WINDOW + 1);
+  const effYearTo = yearTo ?? yMaxDefault;
+
   useEffect(() => {
-    setYearFrom(years[0] ?? 2015);
-    setYearTo(years[years.length - 1] ?? 2100);
-  }, [years]);
+    // при смене региона возвращаемся к годовому срезу
+    setYearFrom(null);
+    setYearTo(null);
+  }, [app.scope]);
+
+  const setPeriodYears = (n: number | "all") => {
+    if (n === "all") {
+      setYearFrom(yMinDefault);
+      setYearTo(yMaxDefault);
+    } else {
+      setYearFrom(Math.max(yMinDefault, yMaxDefault - n + 1));
+      setYearTo(yMaxDefault);
+    }
+  };
 
   useEffect(() => {
     if (!el.current || mapRef.current || !app.regionFile) return;
@@ -172,21 +191,32 @@ function RegionMapMode() {
     () =>
       (app.regionFile?.rows ?? []).filter((r) => {
         const y = Math.floor(r[2] / 100);
-        if (y < yearFrom || y > yearTo) return false;
+        if (y < effYearFrom || y > effYearTo) return false;
         if (!sevSel[r[5]]) return false;
         if (cat !== "all" && dicts.cats[r[6]] !== cat) return false;
         if (weather !== "all" && dicts.weathers[r[8]] !== weather) return false;
         if (tod >= 0 && todOf(r[4]) !== tod) return false;
         return true;
       }),
-    [app.regionFile, yearFrom, yearTo, sevSel, cat, weather, tod, dicts],
+    [app.regionFile, effYearFrom, effYearTo, sevSel, cat, weather, tod, dicts],
   );
+
+  /**
+   * Прореживание: если выборка больше потолка — рисуем равномерную подвыборку,
+   * чтобы интерфейс не подвисал. Статистика вкладок считается по полному набору.
+   */
+  const drawn = useMemo(() => {
+    if (filtered.length <= MAX_REGION_MARKERS) return { rows: filtered, thinned: false };
+    const step = Math.ceil(filtered.length / MAX_REGION_MARKERS);
+    const rows = filtered.filter((_, i) => i % step === 0);
+    return { rows, thinned: true };
+  }, [filtered]);
 
   useEffect(() => {
     const cluster = clusterRef.current;
     if (!ready || !cluster) return;
     cluster.clearLayers();
-    for (const r of filtered) {
+    for (const r of drawn.rows) {
       const m = L.circleMarker([r[0], r[1]], {
         radius: r[5] === 2 ? 7 : r[5] === 1 ? 5 : 4,
         fillColor: SEV_COLORS[r[5]],
@@ -212,7 +242,7 @@ function RegionMapMode() {
       m.bindPopup(parts.join("<br/>"));
       cluster.addLayer(m);
     }
-  }, [filtered, ready, dicts, app.experience.buckets]);
+  }, [drawn, ready, dicts, app.experience.buckets]);
 
   const toggleSev = (i: number) => setSevSel((s) => s.map((v, j) => (j === i ? !v : v)));
   const selectCls =
@@ -224,15 +254,48 @@ function RegionMapMode() {
 
   return (
     <div className="space-y-4">
-      <Card title="Фильтры">
+      <Card title="Фильтры" subtitle="По умолчанию показан только последний год — так карта остаётся быстрой. Расширяй период при необходимости.">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setPeriodYears(1)}
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                effYearFrom === yMaxDefault && effYearTo === yMaxDefault
+                  ? "bg-orange-500/25 text-orange-200 ring-1 ring-orange-500/50"
+                  : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+              }`}
+            >
+              Год
+            </button>
+            <button
+              onClick={() => setPeriodYears(3)}
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                effYearFrom === Math.max(yMinDefault, yMaxDefault - 2) && effYearTo === yMaxDefault
+                  ? "bg-orange-500/25 text-orange-200 ring-1 ring-orange-500/50"
+                  : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+              }`}
+            >
+              3 года
+            </button>
+            <button
+              onClick={() => setPeriodYears("all")}
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                effYearFrom === yMinDefault && effYearTo === yMaxDefault
+                  ? "bg-orange-500/25 text-orange-200 ring-1 ring-orange-500/50"
+                  : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+              }`}
+            >
+              Весь период
+            </button>
+          </div>
+
           <label className="flex items-center gap-2">
             с{" "}
-            <select value={yearFrom} onChange={(e) => setYearFrom(Number(e.target.value))} className={selectCls}>
+            <select value={effYearFrom} onChange={(e) => setYearFrom(Number(e.target.value))} className={selectCls}>
               {(years.length ? years : [yMinDefault]).map((y) => (<option key={y}>{y}</option>))}
             </select>
             по{" "}
-            <select value={yearTo} onChange={(e) => setYearTo(Number(e.target.value))} className={selectCls}>
+            <select value={effYearTo} onChange={(e) => setYearTo(Number(e.target.value))} className={selectCls}>
               {(years.length ? years : [yMaxDefault]).map((y) => (<option key={y}>{y}</option>))}
             </select>
           </label>
@@ -281,9 +344,20 @@ function RegionMapMode() {
           </label>
 
           <span className="ml-auto text-xs text-slate-400">
-            Показано: <b className="text-orange-300">{filtered.length.toLocaleString("ru-RU")}</b>
+            Показано:{" "}
+            <b className="text-orange-300">
+              {drawn.rows.length.toLocaleString("ru-RU")}
+              {drawn.thinned ? ` из ${filtered.length.toLocaleString("ru-RU")}` : ""}
+            </b>
           </span>
         </div>
+        {drawn.thinned && (
+          <p className="mt-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-200 ring-1 ring-amber-500/30">
+            ⚡ Выборка большая, поэтому на карту нанесена равномерная подвыборка из{" "}
+            {MAX_REGION_MARKERS.toLocaleString("ru-RU")} точек. Сузь период или фильтры —
+            и покажутся все происшествия.
+          </p>
+        )}
       </Card>
 
       <div className="relative overflow-hidden rounded-2xl border border-slate-800">

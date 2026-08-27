@@ -37,6 +37,17 @@ export default function EChart({
         backgroundColor: "transparent",
         textStyle: { fontFamily: "inherit" },
         ...option,
+        tooltip: {
+          // confine — ECharts сам держит подсказку внутри контейнера
+          // графика, вместо того чтобы позиционировать её от курсора без
+          // учёта границ экрана. Дефолт как раз и давал баг: на телефоне
+          // тултип вылезал за правый край, а свайп для его чтения задевал
+          // системный жест закрытия модалки.
+          confine: true,
+          ...(typeof option.tooltip === "object" && !Array.isArray(option.tooltip)
+            ? option.tooltip
+            : {}),
+        },
       },
       true,
     );

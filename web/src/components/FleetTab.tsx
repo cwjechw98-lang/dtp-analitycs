@@ -37,7 +37,6 @@ export default function FleetTab() {
   const app = useApp();
   const theme = useTheme();
   const [brandsFile, setBrandsFile] = useState<BrandsFile | null>(null);
-  const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const compareRef = useRef<HTMLDivElement>(null);
 
@@ -143,18 +142,13 @@ export default function FleetTab() {
         </div>
       )}
 
-      {/* ---- результаты поиска / выбранные марки ---- */}
-      <SearchResults
-        query={query}
-        brandsFile={brandsFile}
-        nationalRows={allBrands}
-        baselineShare={baselineShare}
-        selected={selected}
-        onToggle={toggleBrand}
-        accentMain={theme.accentMain}
-      />
+      {/* SearchResults и старая строка поиска в шапке убраны: это был
+          дублирующий путь выбора марки — BrandPicker теперь единственная
+          точка входа. Раньше SearchResults рисовался следом за вердиктом
+          и занимал целый экран старыми карточками, из-за которых до
+          кнопки «поделиться» приходилось листать. */}
 
-      {selected.length === 0 && query.trim().length === 0 && (
+      {selected.length === 0 && (
         <>
           <Card
             title="Рейтинг марок"

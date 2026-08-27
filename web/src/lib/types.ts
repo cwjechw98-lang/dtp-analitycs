@@ -137,7 +137,22 @@ export interface RegionFile {
 export interface TipRule {
   id: string;
   scope: "time" | "season_time" | "weather" | "light" | "road" | "experience";
-  when: Record<string, unknown>;
+  /**
+   * Условие правила — конъюнкция указанных ключей.
+   * Раньше здесь стоял Record<string, unknown>, из-за чего опечатка в
+   * имени ключа не ловилась ни компилятором, ни тестами.
+   */
+  when: {
+    tod?: string;
+    season?: string;
+    weekday?: string;
+    hour_from?: number;
+    hour_to?: number;
+    experience_bucket?: string;
+    road_condition?: string;
+    weather?: string;
+    light?: string;
+  };
   lift: number;
   n: number;
   title: string;

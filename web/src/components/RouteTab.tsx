@@ -1,4 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import Combobox, { type ComboOption } from "./Combobox";
+import RouteTips from "./RouteTips";
+import ShareButton from "./ShareButton";
+import CoffeeBlock from "./CoffeeBlock";
+import { useUrlOnce, useUrlWriter } from "../hooks/useUrlSync";
+import { parseBuffer, parseExp, parsePoint, serializePoint } from "../lib/urlState";
+import { usePlaceSuggest, shortPlace } from "../hooks/usePlaceSuggest";
+import type { GeoResult, GeoResult as GeoRes } from "../lib/osrm";
 import { useApp } from "../state/AppState";
 import { useTheme } from "../state/ThemeContext";
 import type { PointRow } from "../lib/types";
@@ -11,7 +19,7 @@ import { filterCorridor, haversine, pointInCircle, pointInPolygon } from "../lib
 // markercluster не регистрируется — получаем "markerClusterGroup is not a function".
 import L from "leaflet";
 import "leaflet.markercluster";
-import { fetchRoute, geocode, type GeoResult, type OsrmRoute } from "../lib/osrm";
+import { fetchRoute, type OsrmRoute } from "../lib/osrm";
 import { seasonOfYm, todOf } from "../lib/time";
 import {
   createTileLayer,
@@ -77,16 +85,22 @@ export interface CorridorStats {
   topWeathersIdx: [number, number][];
   topCats: [string, number][];
   topBrands: [string, number][];
+  /** покрытия, встреченные в коридоре — для правил scope: "road" */
+  roadConditions: string[];
 }
 
 /** Считает статистику по набору строк (коридор маршрута или выделенная область). */
-export function computeStats(rows: PointRow[], dicts: { cats: string[]; brands: string[] }): CorridorStats {
+export function computeStats(
+  rows: PointRow[],
+  dicts: { cats: string[]; brands: string[]; roads?: string[] },
+): CorridorStats {
   const byHour = Array(24).fill(0);
   const byMonth = Array(12).fill(0);
   const seasonCnt = Array(4).fill(0);
   const weathers = new Map<number, number>();
   const cats = new Map<number, number>();
   const brands = new Map<number, number>();
+  const roads = new Map<number, number>();
   let dead = 0, injured = 0, severe = 0;
   for (const r of rows) {
     byHour[r[4]]++;
@@ -95,6 +109,7 @@ export function computeStats(rows: PointRow[], dicts: { cats: string[]; brands: 
     weathers.set(r[8], (weathers.get(r[8]) ?? 0) + 1);
     cats.set(r[6], (cats.get(r[6]) ?? 0) + 1);
     brands.set(r[11], (brands.get(r[11]) ?? 0) + 1);
+    roads.set(r[9], (roads.get(r[9]) ?? 0) + 1);
     dead += r[12]; injured += r[13];
     if (r[5] >= 1) severe++;
   }
@@ -112,6 +127,13 @@ export function computeStats(rows: PointRow[], dicts: { cats: string[]; brands: 
     topWeathersIdx: [...weathers.entries()].sort((x, y) => y[1] - x[1]).slice(0, 5),
     topCats: top(cats, 10, (i) => dicts.cats[i] ?? "—"),
     topBrands: top(brands, 12, (i) => dicts.brands[i] ?? "—"),
+    // Порог 2%: единичное покрытие в коридоре из тысячи точек — шум,
+    // и запускать по нему правило риска нельзя.
+    roadConditions: [...roads.entries()]
+      .filter(([, c]) => c / (rows.length || 1) >= 0.02)
+      .sort((x, y) => y[1] - x[1])
+      .map(([i]) => dicts.roads?.[i] ?? "")
+      .filter(Boolean),
   };
 }
 
@@ -129,13 +151,42 @@ export default function RouteTab() {
   const [pickMode, setPickMode] = useState<"A" | "B" | null>(null);
   const [queryA, setQueryA] = useState("");
   const [queryB, setQueryB] = useState("");
-  const [results, setResults] = useState<{ for: "A" | "B"; items: GeoResult[] } | null>(null);
+  // Подсказки по мере ввода — по одному независимому источнику на поле.
+  const sugA = usePlaceSuggest(queryA);
+  const sugB = usePlaceSuggest(queryB);
+
   const [expBucket, setExpBucket] = useState(3);
   const [bufferM, setBufferM] = useState(400);
   /** Инструмент выделения: круг или полигон («свободная линия»). */
   const [selTool, setSelTool] = useState<"none" | "circle" | "polygon">("none");
   const [selShape, setSelShape] = useState<SelShape | null>(null);
   const [selRows, setSelRows] = useState<PointRow[] | null>(null);
+
+  // ---- адресная строка (контракт §2) ----
+  const writeUrl = useUrlWriter();
+
+  useUrlOnce((sp) => {
+    const pa = parsePoint(sp.get("a"));
+    const pb = parsePoint(sp.get("b"));
+    const buf = sp.has("buf") ? parseBuffer(sp.get("buf")) : null;
+    const exp = parseExp(sp.get("exp"));
+    if (buf != null) setBufferM(buf);
+    if (exp != null) setExpBucket(exp);
+    if (pa) { setA(pa); setQueryA(pa.label); }
+    if (pb) { setB(pb); setQueryB(pb.label); }
+    // Ссылка из чата должна открываться готовым отчётом, а не формой,
+    // которую надо ещё раз отправить.
+    if (pa && pb) void loadRoute(pa, pb, buf ?? undefined);
+  });
+
+  useEffect(() => {
+    writeUrl({
+      a: a ? serializePoint(a) : null,
+      b: b ? serializePoint(b) : null,
+      buf: bufferM === 400 ? null : bufferM,
+      exp: expBucket,
+    });
+  }, [a, b, bufferM, expBucket, writeUrl]);
 
   // ---- мини-карта ----
   const mapEl = useRef<HTMLDivElement>(null);
@@ -287,8 +338,7 @@ export default function RouteTab() {
         }
         const mode = pickRef.current;
         if (!mode) return;
-        setResults(null);
-        const pt = { lat: e.latlng.lat, lon: e.latlng.lng, label: `Точка (${e.latlng.lat.toFixed(3)}, ${e.latlng.lng.toFixed(3)})` };
+            const pt = { lat: e.latlng.lat, lon: e.latlng.lng, label: `Точка (${e.latlng.lat.toFixed(3)}, ${e.latlng.lng.toFixed(3)})` };
         if (mode === "A") { setA(pt); setPickMode("B"); }
         else { setB(pt); setPickMode(null); }
       });
@@ -370,7 +420,10 @@ export default function RouteTab() {
     })();
   }, [a, b, route]);
 
-  async function loadRoute(pa: Pt, pb: Pt) {
+  async function loadRoute(pa: Pt, pb: Pt, bufOverride?: number) {
+    // Буфер передаётся явно: при заходе по ссылке setBufferM из того же
+    // тика ещё не виден, и коридор посчитался бы по старому значению.
+    const buf = bufOverride ?? bufferM;
     setLoading(true);
     setError(null);
     setRows(null);
@@ -433,7 +486,7 @@ export default function RouteTab() {
         }
       }
       if (truncated) acc = acc.slice(0, MAX_ROUTE_ROWS);
-      const inCorridor = filterCorridor(acc, r.geometry, bufferM);
+      const inCorridor = filterCorridor(acc, r.geometry, buf);
       setRows(inCorridor);
       setTruncated(truncated);
     } catch (e) {
@@ -455,20 +508,8 @@ export default function RouteTab() {
     void loadRoute(p.a, p.b);
   }
 
-  async function doGeocode(which: "A" | "B") {
-    const q = which === "A" ? queryA : queryB;
-    if (q.trim().length < 3) return;
-    try {
-      const items = await geocode(q);
-      setResults({ for: which, items });
-    } catch {
-      setError("Геокодинг недоступен — укажи точку кликом по карте.");
-    }
-  }
-
   function chooseResult(r: GeoResult, which: "A" | "B") {
-    const pt = { lat: r.lat, lon: r.lon, label: r.name.split(",").slice(0, 3).join(",") };
-    setResults(null);
+    const pt = { lat: r.lat, lon: r.lon, label: shortPlace(r.name) };
     if (which === "A") setA(pt);
     else setB(pt);
   }
@@ -590,28 +631,26 @@ export default function RouteTab() {
 
             {(["A", "B"] as const).map((which) => (
               <div key={which}>
-                <div className="flex gap-2">
-                  <input
-                    className={inputCls}
-                    placeholder={which === "A" ? "Точка А: город, адрес…" : "Точка Б: город, адрес…"}
-                    value={which === "A" ? queryA : queryB}
-                    onChange={(e) => (which === "A" ? setQueryA : setQueryB)(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && void doGeocode(which)}
-                  />
-                  <button onClick={() => void doGeocode(which)} className="rounded-lg bg-slate-700 px-3 text-sm hover:bg-slate-600">🔍</button>
-                </div>
-                {results?.for === which && (
-                  <ul className="mt-1 max-h-44 space-y-1 overflow-auto rounded-lg border border-slate-700 bg-slate-800 p-1 text-xs">
-                    {results.items.length === 0 && <li className="px-2 py-1 text-slate-400">Ничего не найдено</li>}
-                    {results.items.map((r, i) => (
-                      <li key={i}>
-                        <button className="w-full rounded px-2 py-1 text-left hover:bg-slate-700" onClick={() => chooseResult(r, which)}>
-                          {r.name}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <Combobox<GeoRes>
+                  value={which === "A" ? queryA : queryB}
+                  placeholder={which === "A" ? "Точка А: город, адрес…" : "Точка Б: город, адрес…"}
+                  loading={which === "A" ? sugA.loading : sugB.loading}
+                  emptyHint="Ничего не нашли — можно поставить точку кликом по карте"
+                  options={(which === "A" ? sugA.items : sugB.items).map(
+                    (r, i): ComboOption<GeoRes> => ({
+                      key: `${r.lat},${r.lon},${i}`,
+                      label: shortPlace(r.name),
+                      hint: r.name,
+                      value: r,
+                    }),
+                  )}
+                  onQueryChange={(q) => (which === "A" ? setQueryA : setQueryB)(q)}
+                  onPick={(opt) => {
+                    chooseResult(opt.value, which);
+                    (which === "A" ? setQueryA : setQueryB)(shortPlace(opt.value.name));
+                  }}
+                  onClear={() => (which === "A" ? setA : setB)(null)}
+                />
               </div>
             ))}
 
@@ -798,6 +837,18 @@ export default function RouteTab() {
               <div className="text-xs uppercase tracking-wider text-slate-400">Маршрут</div>
               <div className="mt-0.5 truncate font-semibold text-white">{a?.label ?? "A"} → {b?.label ?? "Б"}</div>
               <div className="mt-0.5 text-xs text-slate-400">{route.distanceKm.toFixed(1)} км · ~{Math.round(route.durationMin)} мин · коридор ±{bufferM} м</div>
+              {/* n дописывается в ссылку: воркер не умеет считать коридор сам */}
+              <ShareButton
+                path="/route"
+                params={{
+                  a: a ? serializePoint(a) : null,
+                  b: b ? serializePoint(b) : null,
+                  buf: bufferM === 400 ? null : bufferM,
+                  n: corridor.total,
+                }}
+                title={`${a?.label ?? "A"} → ${b?.label ?? "Б"}: ${corridor.total} ДТП в коридоре`}
+                className="mt-2"
+              />
             </Card>
             <Card className="!py-3">
               <div className="text-xs uppercase tracking-wider text-slate-400">ДТП в коридоре</div>
@@ -812,6 +863,17 @@ export default function RouteTab() {
               <div className="mt-0.5 text-2xl font-bold text-white">{(corridor.severeShare * 100).toFixed(0)}%</div>
             </Card>
           </div>
+
+          {/* Правила риска сразу после сводки: это момент, когда человек
+              получил результат и готов его читать. */}
+          <RouteTips
+            origin={a}
+            roadConditions={corridor.roadConditions}
+            expOverride={expBucket}
+          />
+
+          {/* Просьба идёт после правил: сначала польза, потом благодарность. */}
+          <CoffeeBlock accidentsScanned={corridor.total} />
 
           <div className="grid gap-4 lg:grid-cols-3">
             <Card title="Когда выезжать?" subtitle="Зелёный — спокойные часы, красный — опасные">

@@ -33,11 +33,20 @@ function bestMatch(cls: string, weathers: OverviewAgg["weathers"]): string | nul
   return null;
 }
 
-/** Текущая погода в Омске через открытый API Open-Meteo (без ключа). */
-export async function fetchCurrentOmsk(weathers: OverviewAgg["weathers"]): Promise<CurrentWeather> {
+/**
+ * Текущая погода в произвольной точке через открытый Open-Meteo (без ключа).
+ *
+ * Раньше координаты Омска были зашиты в код — наследство от первой версии,
+ * когда весь проект был только про Омскую область.
+ */
+export async function fetchCurrentWeather(
+  lat: number,
+  lon: number,
+  weathers: OverviewAgg["weathers"],
+): Promise<CurrentWeather> {
   const url =
     "https://api.open-meteo.com/v1/forecast" +
-    "?latitude=54.9885&longitude=73.3242&current_weather=true";
+    `?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current_weather=true`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Open-Meteo: HTTP ${res.status}`);
   const j = await res.json();

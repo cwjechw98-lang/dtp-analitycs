@@ -1,118 +1,75 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useState } from "react";
+import { Suspense, lazy, useEffect } from "react";
+import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { trackArrival, trackView } from "./lib/analytics";
 import { humanDate } from "./lib/data";
 import { nf } from "./lib/format";
-import { AppStateProvider, useApp, useAppState } from "./state/AppState";
-import { ACCENTS, ThemeProvider, useTheme, type AccentId } from "./state/ThemeContext";
+import { useApp, useAppState } from "./state/AppState";
+import { ProfileProvider } from "./state/ProfileContext";
 import AuroraBackground from "./components/AuroraBackground";
-import OverviewTab from "./components/OverviewTab";
-import TimeTab from "./components/TimeTab";
-import MapTab from "./components/MapTab";
-import RouteTab from "./components/RouteTab";
-import FleetTab from "./components/FleetTab";
-import TipsTab from "./components/TipsTab";
+import ProfileBar from "./components/ProfileBar";
+import RegionHint from "./components/RegionHint";
+import ThemeSettings from "./components/ThemeSettings";
 
-const TABS = [
-  { id: "overview", label: "Обзор", icon: "📊" },
-  { id: "time", label: "Время", icon: "🕒" },
-  { id: "map", label: "Карта", icon: "🗺️" },
-  { id: "route", label: "Маршрут", icon: "🧭" },
-  { id: "fleet", label: "Авто и водители", icon: "🚙" },
-  { id: "tips", label: "Советы", icon: "💡" },
-] as const;
+// Разделы грузятся лениво: ECharts и Leaflet весят больше мегабайта,
+// и лендингу на "/" (этап 4) они не нужны вовсе.
+const RoutePage = lazy(() => import("./pages/RoutePage"));
+const AtlasPage = lazy(() => import("./pages/AtlasPage"));
+const FleetPage = lazy(() => import("./pages/FleetPage"));
+const MePage = lazy(() => import("./pages/MePage"));
 
-type TabId = (typeof TABS)[number]["id"];
-
-function RegionSelector() {
-  const { meta, scope, setScope } = useApp();
+function SectionFallback() {
   return (
-    <label className="flex items-center gap-2 text-xs text-slate-400">
-      <span className="hidden sm:inline">Регион:</span>
-      <select
-        value={scope}
-        onChange={(e) => setScope(e.target.value)}
-        className="max-w-[240px] rounded-xl border border-slate-700/80 bg-slate-900/70 px-3 py-2 text-xs font-medium text-slate-100 outline-none transition hover:border-slate-500 focus:border-orange-500/60 focus:ring-2 focus:ring-orange-500/20"
-      >
-        <option value="ALL">
-          🇷🇺 Вся Россия · {nf.format(meta.total_accidents)} ДТП
-        </option>
-        {meta.regions.map((r) => (
-          <option key={r.slug} value={r.slug}>
-            {r.name} · {nf.format(r.total)}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className="flex min-h-[40vh] items-center justify-center">
+      <span className="h-8 w-8 animate-spin rounded-full border-2 border-slate-700 border-t-orange-500" />
+    </div>
   );
 }
 
-function ThemeSettings() {
-  const { mode, setMode, accent, setAccent } = useTheme();
-  const [open, setOpen] = useState(false);
+/**
+ * Три раздела вместо шести вкладок (контракт §5).
+ *
+ * Прежняя нарезка шла по измерениям датасета — Обзор / Время / Карта / Авто.
+ * Новая идёт по вопросу пользователя: куда я еду, как устроена аварийность,
+ * что за марка. Советы растворились в разделах, где они применимы.
+ */
+const SECTIONS = [
+  { to: "/route", label: "Маршрут", icon: "🧭", hint: "Что было на дороге, по которой я поеду" },
+  { to: "/atlas", label: "Атлас", icon: "🗺️", hint: "Как устроена аварийность в стране и регионе" },
+  { to: "/fleet", label: "Автопарк", icon: "🚙", hint: "Марки, виновники, стаж" },
+  { to: "/me", label: "Мой риск", icon: "🎯", hint: "Личный профиль относительно базы" },
+] as const;
+
+function RegionSummary() {
+  const app = useApp();
+  const regionName =
+    app.scope === "ALL"
+      ? app.meta.coverage
+      : app.meta.regions.find((r) => r.slug === app.scope)?.name ?? app.scope;
+  const total = app.scope === "ALL" ? app.meta.total_accidents : app.regionFile?.total ?? 0;
+  const period =
+    app.scope === "ALL"
+      ? `${app.meta.date_min} — ${app.meta.date_max}`
+      : `${app.regionFile?.date_min ?? "…"} — ${app.regionFile?.date_max ?? "…"}`;
+
   return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        title="Тема и цветовая схема"
-        className="rounded-xl border border-slate-700/80 bg-slate-900/70 px-2.5 py-2 text-sm transition hover:border-slate-500"
-      >
-        🎨
-      </button>
-      {open && (
-        <motion.div
-          initial={{ opacity: 0, y: -6 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass absolute right-0 top-11 z-[1000] w-56 rounded-2xl border p-3 shadow-xl"
-        >
-          <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Тема</div>
-          <div className="mb-3 grid grid-cols-2 gap-1.5">
-            {(["dark", "light"] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => setMode(m)}
-                className={`rounded-lg px-2 py-1.5 text-xs font-medium transition ${
-                  mode === m ? "text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-                }`}
-                style={mode === m ? { backgroundColor: "var(--accent)" } : undefined}
-              >
-                {m === "dark" ? "🌙 Тёмная" : "☀️ Светлая"}
-              </button>
-            ))}
-          </div>
-          <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Цветовая схема</div>
-          <div className="flex gap-2">
-            {(Object.keys(ACCENTS) as AccentId[]).map((a) => (
-              <button
-                key={a}
-                onClick={() => setAccent(a)}
-                title={ACCENTS[a].name}
-                className={`h-7 w-7 rounded-full transition ${
-                  accent === a ? "ring-2 ring-white ring-offset-2 ring-offset-slate-900" : "opacity-70 hover:opacity-100"
-                }`}
-                style={{ background: `linear-gradient(135deg, ${ACCENTS[a].main}, ${ACCENTS[a].soft})` }}
-              />
-            ))}
-          </div>
-        </motion.div>
-      )}
-    </div>
+    <p className="mt-0.5 text-[11px] leading-tight text-slate-500">
+      {regionName} · {nf.format(total)} происшествий{period ? ` · ${period}` : ""}
+    </p>
   );
 }
 
 function Shell() {
   const app = useApp();
-  const theme = useTheme();
-  const [tab, setTab] = useState<TabId>("overview");
+  const location = useLocation();
 
-  const regionName =
-    app.scope === "ALL"
-      ? app.meta.coverage
-      : app.meta.regions.find((r) => r.slug === app.scope)?.name ?? app.scope;
-  const total = app.scope === "ALL" ? app.meta.total_accidents : (app.regionFile?.total ?? 0);
-  const period =
-    app.scope === "ALL"
-      ? `${app.meta.date_min} — ${app.meta.date_max}`
-      : `${app.regionFile?.date_min ?? "…"} — ${app.regionFile?.date_max ?? "…"}`;
+  useEffect(() => {
+    trackView(location.pathname.replace(/^\//, "") || "root");
+  }, [location.pathname]);
+
+  useEffect(() => {
+    trackArrival();
+  }, []);
 
   return (
     <div className="min-h-screen pb-14">
@@ -125,65 +82,76 @@ function Shell() {
               <span className="mr-1.5">🚗</span>
               ДТП Аналитика
             </h1>
-            <p className="mt-0.5 text-[11px] leading-tight text-slate-500">
-              {regionName} · {nf.format(total)} происшествий{period ? ` · ${period}` : ""}
-            </p>
+            <RegionSummary />
           </motion.div>
           <div className="flex items-center gap-2.5">
             {app.regionLoading && (
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-700 border-t-orange-500" />
             )}
-            <RegionSelector />
+            <ProfileBar />
             <ThemeSettings />
           </div>
         </div>
+
         <nav className="mx-auto max-w-7xl overflow-x-auto px-4 sm:px-6">
           <div className="flex gap-1 pb-px">
-            {TABS.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={`relative whitespace-nowrap rounded-t-xl px-4 py-2.5 text-sm font-medium transition-colors ${
-                  tab === t.id ? "text-white" : "text-slate-400 hover:text-slate-200"
-                }`}
+            {SECTIONS.map((s) => (
+              <NavLink
+                key={s.to}
+                to={{ pathname: s.to, search: location.search }}
+                title={s.hint}
+                className={({ isActive }) =>
+                  `relative whitespace-nowrap rounded-t-xl px-4 py-2.5 text-sm font-medium transition-colors ${
+                    isActive ? "text-white" : "text-slate-400 hover:text-slate-200"
+                  }`
+                }
               >
-                {tab === t.id && (
-                  <motion.span
-                    layoutId="tab-pill"
-                    className="absolute inset-0 rounded-t-xl ring-1 ring-inset"
-                    style={{
-                      background:
-                        "linear-gradient(to bottom, color-mix(in srgb, var(--accent) 26%, transparent), transparent)",
-                      boxShadow: "inset 0 1px 0 color-mix(in srgb, var(--accent) 45%, transparent)",
-                      // @ts-expect-error css custom prop
-                      "--tw-ring-color": "color-mix(in srgb, var(--accent) 35%, transparent)",
-                    }}
-                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                  />
+                {({ isActive }) => (
+                  <>
+                    {isActive && (
+                      <motion.span
+                        layoutId="tab-pill"
+                        className="absolute inset-0 rounded-t-xl ring-1 ring-inset"
+                        style={{
+                          background:
+                            "linear-gradient(to bottom, color-mix(in srgb, var(--accent) 26%, transparent), transparent)",
+                          boxShadow: "inset 0 1px 0 color-mix(in srgb, var(--accent) 45%, transparent)",
+                          // @ts-expect-error css custom prop
+                          "--tw-ring-color": "color-mix(in srgb, var(--accent) 35%, transparent)",
+                        }}
+                        transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                      />
+                    )}
+                    <span className="relative mr-1.5">{s.icon}</span>
+                    <span className="relative">{s.label}</span>
+                  </>
                 )}
-                <span className="relative mr-1.5">{t.icon}</span>
-                <span className="relative">{t.label}</span>
-              </button>
+              </NavLink>
             ))}
           </div>
         </nav>
       </header>
 
       <main className="mx-auto max-w-7xl space-y-4 px-4 py-6 sm:px-6">
+        <RegionHint />
         <AnimatePresence mode="wait">
           <motion.div
-            key={tab + "::" + app.scope}
+            key={location.pathname}
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
           >
-            {tab === "overview" && <OverviewTab />}
-            {tab === "time" && <TimeTab />}
-            {tab === "map" && <MapTab />}
-            {tab === "route" && <RouteTab />}
-            {tab === "fleet" && <FleetTab />}
-            {tab === "tips" && <TipsTab />}
+            <Suspense fallback={<SectionFallback />}>
+            <Routes location={location}>
+              <Route path="/route" element={<RoutePage />} />
+              <Route path="/atlas" element={<AtlasPage />} />
+              <Route path="/fleet" element={<FleetPage />} />
+              <Route path="/me" element={<MePage />} />
+              {/* Лендинг придёт на "/" на этапе 4; до тех пор — вход в маршрут. */}
+              <Route path="*" element={<Navigate to="/route" replace />} />
+            </Routes>
+            </Suspense>
           </motion.div>
         </AnimatePresence>
       </main>
@@ -198,8 +166,8 @@ function Shell() {
         >
           Карта ДТП (dtp-stat.ru/opendata)
         </a>{" "}
-        · ГИБДД МВД России · обновлено {humanDate(app.meta.generated_at_utc)}. Рекомендации
-        вероятностные и не заменяют ПДД.
+        · ГИБДД МВД России · обновлено {humanDate(app.meta.generated_at_utc)}. Оценки вероятностные и
+        построены на исторических данных: это не правовые выводы и не гарантия безопасности.
       </footer>
     </div>
   );
@@ -207,11 +175,9 @@ function Shell() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AppStateProvider>
-        <Gate />
-      </AppStateProvider>
-    </ThemeProvider>
+    <ProfileProvider>
+      <Gate />
+    </ProfileProvider>
   );
 }
 

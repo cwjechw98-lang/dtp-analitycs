@@ -21,3 +21,10 @@ Thumbs.db
 
 # --- временные токены ---
 gh_dtp_token.txt
+
+# --- секреты ---
+.env
+.env.*
+cloudfire.md
+*.key
+*credentials*

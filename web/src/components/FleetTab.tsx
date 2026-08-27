@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import ShareButton from "./ShareButton";
+import { useUrlOnce, useUrlWriter } from "../hooks/useUrlSync";
 import { motion } from "framer-motion";
 import { useApp } from "../state/AppState";
 import { useTheme } from "../state/ThemeContext";
@@ -36,6 +38,25 @@ export default function FleetTab() {
   const [brandsFile, setBrandsFile] = useState<BrandsFile | null>(null);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
+
+  // ---- пермалинк дуэли (контракт §2/§4) ----
+  const writeUrl = useUrlWriter();
+
+  useUrlOnce((sp) => {
+    // brand — «главная» марка, vs — до двух соперников. Разбираем обе формы,
+    // потому что ссылка может прийти и из карточки, и из сравнения.
+    const raw = [sp.get("brand"), ...(sp.get("vs") ?? "").split(",")]
+      .map((x) => (x ?? "").trim())
+      .filter(Boolean);
+    if (raw.length) setSelected(raw.slice(0, 3).map((x) => x.toUpperCase()));
+  });
+
+  useEffect(() => {
+    writeUrl({
+      brand: selected[0] ?? null,
+      vs: selected.length > 1 ? selected.slice(1).join(",") : null,
+    });
+  }, [selected, writeUrl]);
   const [sortKey, setSortKey] = useState<SortKey>("total");
   const [showAll, setShowAll] = useState(false);
 
@@ -126,6 +147,17 @@ export default function FleetTab() {
               <button onClick={() => setSelected([])} className="text-xs text-slate-500 underline decoration-dotted hover:text-slate-300">
                 очистить
               </button>
+              <ShareButton
+                path="/fleet"
+                params={{ brand: selected[0], vs: selected.slice(1).join(",") || null }}
+                title={
+                  selected.length > 1
+                    ? `${selected.join(" × ")} — кто чаще виноват`
+                    : `${selected[0]} — статистика ДТП`
+                }
+                label={selected.length > 1 ? "Поделиться дуэлью" : "Поделиться"}
+                className="ml-auto"
+              />
             </div>
           )}
         </div>

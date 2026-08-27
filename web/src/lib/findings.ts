@@ -45,7 +45,22 @@ export interface Finding {
   evidence: [string, string][];
 }
 
-const pct = (x: number, digits = 1) => `${(x * 100).toFixed(digits)}%`;
+/** Русская дробь: toFixed даёт точку, а в тексте нужна запятая. */
+const dec = (x: number, digits = 1) => x.toFixed(digits).replace(".", ",");
+const pct = (x: number, digits = 1) => `${dec(x * 100, digits)}%`;
+
+/**
+ * Склонение по числу: «1 отличие», «3 отличия», «5 отличий».
+ * Нужно везде, где число подставляется в текст карточки.
+ */
+export function plural(n: number, one: string, few: string, many: string): string {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 14) return many;
+  const mod10 = n % 10;
+  if (mod10 === 1) return one;
+  if (mod10 >= 2 && mod10 <= 4) return few;
+  return many;
+}
 /**
  * Строчная только первая буква: toLowerCase() ломал аббревиатуры
  * («ТС» превращалось в «тс»).
@@ -138,7 +153,7 @@ export function compareBrands({ nameA, a, nameB, b }: BrandPair): Finding[] {
         a.total,
         b.total,
         (rel) =>
-          `В ДТП с ${hi} погибшие встречаются в ${(1 + rel).toFixed(1)} раза чаще, чем в ДТП с ${lo}: ` +
+          `В ДТП с ${hi} погибшие встречаются в ${dec(1 + rel)} раза чаще, чем в ДТП с ${lo}: ` +
           `${pct(Math.max(sA, sB))} против ${pct(Math.min(sA, sB))} происшествий.`,
         [
           [`${nameA} — с погибшими`, `${pct(sA)} (${num(a.sev[2])})`],
@@ -160,7 +175,7 @@ export function compareBrands({ nameA, a, nameB, b }: BrandPair): Finding[] {
         a.total,
         b.total,
         (_rel, pp) =>
-          `Тяжёлые последствия у ${hi} на ${(pp * 100).toFixed(1)} п.п. чаще, чем у ${lo}: ` +
+          `Тяжёлые последствия у ${hi} на ${dec(pp * 100)} п.п. чаще, чем у ${lo}: ` +
           `${pct(Math.max(sA, sB))} против ${pct(Math.min(sA, sB))}.`,
         [
           [`${nameA} — тяжёлые и с погибшими`, pct(sA)],
@@ -182,7 +197,7 @@ export function compareBrands({ nameA, a, nameB, b }: BrandPair): Finding[] {
         a.total,
         b.total,
         (_rel, pp) =>
-          `Водителя ${hi} признают виновником на ${(pp * 100).toFixed(1)} п.п. чаще, чем водителя ${lo}: ` +
+          `Водителя ${hi} признают виновником на ${dec(pp * 100)} п.п. чаще, чем водителя ${lo}: ` +
           `${pct(Math.max(sA, sB))} против ${pct(Math.min(sA, sB))} случаев.`,
         [
           [`${nameA} — виновник`, `${pct(sA)} (${num(a.culprit)})`],
@@ -216,7 +231,7 @@ export function compareBrands({ nameA, a, nameB, b }: BrandPair): Finding[] {
           b.culprit,
           (_rel, pp) =>
             `Среди виновников на ${hi} чаще фиксируют «${lowerFirst(best!.name)}» — ` +
-            `на ${(pp * 100).toFixed(1)} п.п. больше, чем у ${lo}.`,
+            `на ${dec(pp * 100)} п.п. больше, чем у ${lo}.`,
           [
             [`${nameA}`, pct(best.sa)],
             [`${nameB}`, pct(best.sb)],
@@ -247,8 +262,8 @@ export function compareBrands({ nameA, a, nameB, b }: BrandPair): Finding[] {
       out.push(
         descriptive(
           "trend",
-          `С ${fastT.from[0]} года ДТП с ${fast} стало меньше на ${Math.abs(fastT.change * 100).toFixed(0)}%, ` +
-            `с ${slow} — на ${Math.abs(slowT.change * 100).toFixed(0)}%.`,
+          `С ${fastT.from[0]} года ДТП с ${fast} стало меньше на ${Math.round(Math.abs(fastT.change * 100))}%, ` +
+            `с ${slow} — на ${Math.round(Math.abs(slowT.change * 100))}%.`,
           Math.abs(ta.change - tb.change),
           Math.min(a.total, b.total),
           [

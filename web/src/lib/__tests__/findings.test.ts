@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MIN_N, compareBrands, isRealBrand, verdict } from "../findings";
+import { MIN_N, compareBrands, isRealBrand, plural, verdict } from "../findings";
 import type { BrandDetail } from "../types";
 
 /** Марка-заготовка: доли задаются явно, чтобы проверять именно пороги. */
@@ -104,5 +104,32 @@ describe("isRealBrand", () => {
     expect(isRealBrand("ВАЗ")).toBe(true);
     expect(isRealBrand("Прочие марки ТС")).toBe(false);
     expect(isRealBrand("Прочие марки мотоциклов")).toBe(false);
+  });
+});
+
+describe("русская типографика", () => {
+  it("склоняет по числу правильно, включая 11–14", () => {
+    const p = (n: number) => plural(n, "отличие", "отличия", "отличий");
+    expect([1, 2, 5, 11, 14, 21, 22, 25, 111].map(p)).toEqual([
+      "отличие",
+      "отличия",
+      "отличий",
+      "отличий",
+      "отличий",
+      "отличие",
+      "отличия",
+      "отличий",
+      "отличий",
+    ]);
+  });
+
+  it("в формулировках запятая, а не точка", () => {
+    const a = brand({ total: 100_000, sev: [30_000, 55_000, 15_000] });
+    const b = brand({ total: 100_000, sev: [45_000, 50_000, 5_000] });
+    for (const f of compareBrands({ nameA: "A", a, nameB: "B", b })) {
+      // Цифра-точка-цифра — признак несклонённой дроби. Проценты и разы
+      // в русском тексте пишутся через запятую.
+      expect(f.text).not.toMatch(/\d\.\d/);
+    }
   });
 });

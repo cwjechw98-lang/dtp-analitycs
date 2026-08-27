@@ -42,7 +42,9 @@ export default function BrandPicker({
    * ровно в тот момент, когда человек получил результат.
    */
   const [expanded, setExpanded] = useState(false);
-  const collapsed = selected.length >= 2 && !expanded;
+  // Сворачиваемся уже на одной марке: досье по ней показывается сразу,
+  // и развёрнутый выбор так же уводил бы результат под сгиб.
+  const collapsed = selected.length >= 1 && !expanded;
 
   const names = useMemo(
     () =>
@@ -89,7 +91,7 @@ export default function BrandPicker({
     const next = selected.length >= 3 ? [...selected.slice(1), name] : [...selected, name];
     onChange(next);
     setQuery(""); // жалоба №2: строка больше не висит
-    if (next.length >= 2) {
+    if (next.length >= 1) {
       setExpanded(false);
       // Вердикт появляется ВЫШЕ выбора, то есть вне поля зрения.
       // Без этого человек добавляет вторую марку и не видит, что
@@ -178,9 +180,7 @@ export default function BrandPicker({
             </span>
           ))}
 
-          {selected.length === 1 && (
-            <span className="lvl-support">добавь вторую марку для сравнения</span>
-          )}
+
           {selected.length === 3 && (
             <span className="lvl-meta">следующая марка заменит первую</span>
           )}

@@ -102,6 +102,10 @@ export interface BrandDetail {
   by_year: [string, number][];
   /** гео-охват: [регион, ДТП] — топ-12 + прочие */
   by_region: [string, number][];
+  /** Доминирующий тип ТС. Появляется после пересборки данных. */
+  cat?: string | null;
+  /** Расклад по типам ТС, топ-5. */
+  by_cat?: [string, number][];
 }
 
 export interface BrandsFile {

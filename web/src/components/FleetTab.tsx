@@ -136,30 +136,25 @@ export default function FleetTab() {
           получил. Теперь выбор уходит вниз, как только сравнение собрано:
           менять марки нужно редко, а читать результат — сразу. */}
       {(() => {
-        if (selected.length < 2) return null;
-        const ka = resolveBrand(selected[0]);
-        const kb = resolveBrand(selected[1]);
-        if (!ka || !kb) return null;
+        // Одна марка — тоже полноценный сценарий: досье против автопарка.
+        // Раньше без второй марки не показывалось вообще ничего.
+        const keys = selected.map(resolveBrand).filter(Boolean) as string[];
+        if (keys.length === 0) return null;
         return (
           <div ref={compareRef} className="scroll-mt-28">
-            <BrandVerdictCard
-              nameA={ka}
-              a={brandsFile.brands[ka]}
-              nameB={kb}
-              b={brandsFile.brands[kb]}
-            />
+            <BrandVerdictCard brandsFile={brandsFile} names={keys.slice(0, 2)} />
           </div>
         );
       })()}
 
       <Section
-        title={selected.length >= 2 ? "Изменить сравнение" : "Сравнение марок"}
+        title={selected.length >= 1 ? "Изменить выбор" : "Марки в ДТП"}
         lead={
-          selected.length >= 2
+          selected.length >= 1
             ? undefined
-            : "Что отличает одну марку от другой в 1,6 млн записей ГИБДД"
+            : "Выбери марку — покажем, чем она отличается от среднего по автопарку. Добавь вторую, чтобы сравнить напрямую."
         }
-        divider={selected.length >= 2}
+        divider={selected.length >= 1}
       >
         <BrandPicker
           brandsFile={brandsFile}

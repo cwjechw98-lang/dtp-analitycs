@@ -544,3 +544,182 @@ export function corridorFindings(c: CorridorInput, base: NationalBaseline): Find
       y.weight - x.weight,
   );
 }
+
+/* ============ находки по одной марке против автопарка ============ */
+
+/**
+ * Досье одной марки (жалоба «хочу посмотреть BMW, а меня заставляют
+ * сравнивать»).
+ *
+ * Базой служит весь автопарк: марка сравнивается не с конкретным
+ * соперником, а со средним по 1,6 млн записей. Пороги те же —
+ * при выборке меньше MIN_N марка молчит, а не выдаёт шум.
+ */
+
+export interface FleetBaseline {
+  total: number;
+  /** [лёгкие, тяжёлые, с погибшими] по всему автопарку */
+  sev: [number, number, number];
+  culprit: number;
+  /** [нарушение, число] по всем виновникам автопарка */
+  violations: [string, number][];
+}
+
+/** Сводит все настоящие марки в базу для сравнения. */
+export function fleetBaseline(brands: Record<string, BrandDetail>): FleetBaseline {
+  const sev: [number, number, number] = [0, 0, 0];
+  const viol = new Map<string, number>();
+  let total = 0;
+  let culprit = 0;
+  for (const [name, b] of Object.entries(brands)) {
+    if (!isRealBrand(name)) continue;
+    total += b.total;
+    culprit += b.culprit;
+    sev[0] += b.sev[0];
+    sev[1] += b.sev[1];
+    sev[2] += b.sev[2];
+    for (const [v, c] of b.violations) viol.set(v, (viol.get(v) ?? 0) + c);
+  }
+  return {
+    total,
+    sev,
+    culprit,
+    violations: [...viol.entries()].sort((x, y) => y[1] - x[1]),
+  };
+}
+
+export function brandVsFleet(name: string, b: BrandDetail, base: FleetBaseline): Finding[] {
+  const out: (Finding | null)[] = [];
+  if (b.total <= 0 || base.total <= 0) return [];
+
+  const baseDeath = base.sev[2] / base.total;
+  const baseSevere = (base.sev[1] + base.sev[2]) / base.total;
+  const baseCulprit = base.culprit / base.total;
+
+  const death = b.sev[2] / b.total;
+  const severe = (b.sev[1] + b.sev[2]) / b.total;
+  const culprit = culpritShare(b);
+
+  out.push(
+    inferential(
+      "solo-culprit",
+      culprit,
+      baseCulprit,
+      b.total,
+      base.total,
+      (_rel, pp) =>
+        culprit > baseCulprit
+          ? `Водителя ${name} признают виновником чаще среднего по автопарку: ${pct(culprit)} против ${pct(baseCulprit)} — разница ${dec(pp * 100)} п.п.`
+          : `Водителя ${name} признают виновником реже среднего: ${pct(culprit)} против ${pct(baseCulprit)}.`,
+      [
+        [`${name} — виновник`, `${pct(culprit)} (${num(b.culprit)})`],
+        ["Средняя по автопарку", pct(baseCulprit)],
+      ],
+      culprit > baseCulprit,
+    ),
+  );
+
+  out.push(
+    inferential(
+      "solo-death",
+      death,
+      baseDeath,
+      b.total,
+      base.total,
+      (rel) =>
+        death > baseDeath
+          ? `В ДТП с ${name} погибшие встречаются в ${dec(1 + rel)} раза чаще среднего по автопарку.`
+          : `В ДТП с ${name} погибшие встречаются реже среднего: ${pct(death)} против ${pct(baseDeath)}.`,
+      [
+        [`${name} — с погибшими`, `${pct(death)} (${num(b.sev[2])})`],
+        ["Средняя по автопарку", pct(baseDeath)],
+      ],
+      death > baseDeath,
+    ),
+  );
+
+  out.push(
+    inferential(
+      "solo-severe",
+      severe,
+      baseSevere,
+      b.total,
+      base.total,
+      (_rel, pp) =>
+        severe > baseSevere
+          ? `Последствия тяжелее среднего: ${pct(severe)} против ${pct(baseSevere)} по автопарку — на ${dec(pp * 100)} п.п. больше.`
+          : `Последствия легче среднего: ${pct(severe)} против ${pct(baseSevere)} по автопарку.`,
+      [
+        [`${name} — тяжёлые и с погибшими`, pct(severe)],
+        ["Средняя по автопарку", pct(baseSevere)],
+      ],
+      severe > baseSevere,
+    ),
+  );
+
+  // --- характерное нарушение этой марки ---
+  {
+    const baseViol = new Map(base.violations);
+    let best: { name: string; sb: number; sf: number } | null = null;
+    for (const [vname, count] of b.violations) {
+      const bn = baseViol.get(vname);
+      if (!bn) continue;
+      const sb = count / b.culprit;
+      const sf = bn / base.culprit;
+      if (!best || Math.abs(sb - sf) > Math.abs(best.sb - best.sf)) best = { name: vname, sb, sf };
+    }
+    if (best && best.sb > best.sf) {
+      out.push(
+        inferential(
+          "solo-violation",
+          best.sb,
+          best.sf,
+          b.culprit,
+          base.culprit,
+          (_rel, pp) =>
+            `Характерное нарушение — «${lowerFirst(best!.name)}»: у виновников на ${name} оно встречается на ${dec(pp * 100)} п.п. чаще, чем в среднем.`,
+          [
+            [name, pct(best.sb)],
+            ["Средняя по автопарку", pct(best.sf)],
+          ],
+          true,
+        ),
+      );
+    }
+  }
+
+  // --- динамика: описательная ---
+  {
+    const ys = [...b.by_year].sort((p, q) => p[0].localeCompare(q[0]));
+    const first = ys[0];
+    // Последний год почти всегда неполный — берём предпоследний.
+    const last = ys[ys.length - 2] ?? ys[ys.length - 1];
+    if (first && last && first[1]) {
+      const change = last[1] / first[1] - 1;
+      out.push(
+        descriptive(
+          "solo-trend",
+          `С ${first[0]} по ${last[0]} год число ДТП с ${name} изменилось на ${Math.round(change * 100)}% — с ${num(first[1])} до ${num(last[1])} в год.`,
+          Math.abs(change),
+          b.total,
+          [
+            [`${first[0]}`, `${num(first[1])} ДТП`],
+            [`${last[0]}`, `${num(last[1])} ДТП`],
+          ],
+        ),
+      );
+    }
+  }
+
+  const PRIORITY: Record<string, number> = {
+    "solo-culprit": 5,
+    "solo-death": 4,
+    "solo-severe": 3,
+    "solo-violation": 2,
+    "solo-trend": 1,
+  };
+  const w = (f: Finding) => (f.warns === false ? 0 : 1);
+  return (out.filter(Boolean) as Finding[]).sort(
+    (x, y) => w(y) - w(x) || (PRIORITY[y.id] ?? 0) - (PRIORITY[x.id] ?? 0) || y.weight - x.weight,
+  );
+}

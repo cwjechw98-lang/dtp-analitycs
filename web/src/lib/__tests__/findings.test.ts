@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { MIN_N, compareBrands, corridorFindings, isRealBrand, plural, verdict } from "../findings";
+import {
+  MIN_N,
+  brandVsFleet,
+  compareBrands,
+  corridorFindings,
+  fleetBaseline,
+  isRealBrand,
+  plural,
+  verdict,
+} from "../findings";
 import type { BrandDetail } from "../types";
 
 /** Марка-заготовка: доли задаются явно, чтобы проверять именно пороги. */
@@ -210,5 +219,46 @@ describe("находки по коридору маршрута", () => {
     const v = verdict(compareBrands({ nameA: "A", a, nameB: "B", b }));
     expect(v?.kind).toBe("inferential");
     expect(v?.id).toBe("death");
+  });
+});
+
+describe("досье одной марки", () => {
+  const fleet = {
+    total: 1_000_000,
+    sev: [330_000, 570_000, 100_000] as [number, number, number],
+    culprit: 558_000,
+    violations: [
+      ["Превышение скорости", 200_000],
+      ["Неправильный выбор дистанции", 100_000],
+    ] as [string, number][],
+  };
+
+  it("даёт вердикт без второй марки", () => {
+    const b = brand({ total: 50_000, sev: [10_000, 25_000, 15_000], culprit: 35_000 });
+    const f = brandVsFleet("X", b, fleet);
+    expect(f.length).toBeGreaterThan(0);
+    expect(f[0].kind).toBe("inferential");
+  });
+
+  it("предупреждающая находка идёт выше успокаивающей", () => {
+    // Марка хуже по смертности, но лучше по доле виновника —
+    // вердиктом должно стать предупреждение.
+    const b = brand({ total: 50_000, sev: [10_000, 25_000, 15_000], culprit: 15_000 });
+    const f = brandVsFleet("X", b, fleet);
+    expect(f[0].warns).not.toBe(false);
+  });
+
+  it("молчит на марке меньше порога", () => {
+    const tiny = brand({ total: 200, sev: [50, 100, 50], culprit: 180 });
+    const inf = brandVsFleet("X", tiny, fleet).filter((x) => x.kind === "inferential");
+    expect(inf).toHaveLength(0);
+  });
+
+  it("fleetBaseline исключает корзины «прочие»", () => {
+    const base = fleetBaseline({
+      ВАЗ: brand({ total: 1000 }),
+      "Прочие марки ТС": brand({ total: 9_000_000 }),
+    });
+    expect(base.total).toBe(1000);
   });
 });

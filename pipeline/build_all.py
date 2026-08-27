@@ -224,6 +224,11 @@ class Acc:
         # для карточки марки: динамика по годам и гео-охват по регионам
         self.brand_by_year = collections.defaultdict(collections.Counter)      # марка -> год -> ДТП
         self.brand_by_region = collections.defaultdict(collections.Counter)    # марка -> регион -> ДТП
+        # марка -> тип ТС -> ДТП. Источник отдаёт veh["category"] («Легковые
+        # автомобили», «Мотоциклы», «Автобусы», «Грузовые…»), но раньше это
+        # поле только считалось глобально и терялось для конкретной марки —
+        # из-за чего в рейтинге мотоциклы и краны шли вперемешку с легковыми.
+        self.brand_by_cat = collections.defaultdict(collections.Counter)
         self.accidents_with_vehicle_culprit = 0
         self.pedestrian_culprit_accidents = 0
 
@@ -340,6 +345,8 @@ class Acc:
                 self.brand_by_year[b][year] += 1
                 if region:
                     self.brand_by_region[b][region] += 1
+                if vc:
+                    self.brand_by_cat[b][vc] += 1
             is_driver_violator = False
             driver_viols: list[str] = []
             for part in (veh.get("participants") or []):
@@ -738,6 +745,12 @@ def main() -> int:
         rest_c = sum(c for _, c in reg_items[12:])
         if rest_c:
             by_region.append(["Прочие регионы", rest_c])
+        # Тип ТС марки: доминирующая категория плюс полный расклад.
+        # Нужен, чтобы в рейтинге можно было отделить легковые от
+        # мотоциклов, автобусов и спецтехники — раньше они шли вперемешку,
+        # и сравнение КАМАЗа с легковой маркой выглядело как сравнение
+        # равных, хотя это разные классы техники.
+        cat_items = sorted(acc.brand_by_cat[b].items(), key=lambda kv: -kv[1])
         brands_detail[b] = {
             "total": sum(sev),
             "sev": sev,
@@ -746,6 +759,8 @@ def main() -> int:
             "violations": [[t, c] for t, c in acc.brand_viol[b].most_common(6)],
             "by_year": by_year,
             "by_region": by_region,
+            "cat": cat_items[0][0] if cat_items else None,
+            "by_cat": [[c, n] for c, n in cat_items[:5]],
         }
     dump(OUT / "brands.json", {
         "generated_at_utc": started.isoformat(),

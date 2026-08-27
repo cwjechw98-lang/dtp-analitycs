@@ -3,13 +3,13 @@ import { Suspense, lazy, useEffect } from "react";
 import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { trackArrival, trackView } from "./lib/analytics";
 import { humanDate } from "./lib/data";
-import { nf } from "./lib/format";
 import { useApp, useAppState } from "./state/AppState";
 import { ProfileProvider } from "./state/ProfileContext";
 import AuroraBackground from "./components/AuroraBackground";
 import ProfileBar from "./components/ProfileBar";
 import RegionHint from "./components/RegionHint";
 import ThemeSettings from "./components/ThemeSettings";
+import { BottomNav, DesktopNav } from "./components/Nav";
 
 // Разделы грузятся лениво: ECharts и Leaflet весят больше мегабайта,
 // и лендингу на "/" (этап 4) они не нужны вовсе.
@@ -23,39 +23,6 @@ function SectionFallback() {
     <div className="flex min-h-[40vh] items-center justify-center">
       <span className="h-8 w-8 animate-spin rounded-full border-2 border-slate-700 border-t-orange-500" />
     </div>
-  );
-}
-
-/**
- * Три раздела вместо шести вкладок (контракт §5).
- *
- * Прежняя нарезка шла по измерениям датасета — Обзор / Время / Карта / Авто.
- * Новая идёт по вопросу пользователя: куда я еду, как устроена аварийность,
- * что за марка. Советы растворились в разделах, где они применимы.
- */
-const SECTIONS = [
-  { to: "/route", label: "Маршрут", icon: "🧭", hint: "Что было на дороге, по которой я поеду" },
-  { to: "/atlas", label: "Атлас", icon: "🗺️", hint: "Как устроена аварийность в стране и регионе" },
-  { to: "/fleet", label: "Автопарк", icon: "🚙", hint: "Марки, виновники, стаж" },
-  { to: "/me", label: "Мой риск", icon: "🎯", hint: "Личный профиль относительно базы" },
-] as const;
-
-function RegionSummary() {
-  const app = useApp();
-  const regionName =
-    app.scope === "ALL"
-      ? app.meta.coverage
-      : app.meta.regions.find((r) => r.slug === app.scope)?.name ?? app.scope;
-  const total = app.scope === "ALL" ? app.meta.total_accidents : app.regionFile?.total ?? 0;
-  const period =
-    app.scope === "ALL"
-      ? `${app.meta.date_min} — ${app.meta.date_max}`
-      : `${app.regionFile?.date_min ?? "…"} — ${app.regionFile?.date_max ?? "…"}`;
-
-  return (
-    <p className="mt-0.5 text-[11px] leading-tight text-slate-500">
-      {regionName} · {nf.format(total)} происшествий{period ? ` · ${period}` : ""}
-    </p>
   );
 }
 
@@ -75,64 +42,37 @@ function Shell() {
     <div className="min-h-screen pb-14">
       <AuroraBackground />
 
-      <header className="app-header sticky top-0 z-[900] border-b backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-6">
-          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
-            <h1 className="text-lg font-extrabold tracking-tight sm:text-xl">
-              <span className="mr-1.5">🚗</span>
+      {/* Тонкая шапка: идентика слева, служебное справа. Прежний блок
+          с заголовком, подзаголовком и рядом крупных таблеток занимал
+          четверть экрана телефона и конкурировал за внимание с вердиктом. */}
+      <header
+        className="sticky top-0 z-[900] border-b backdrop-blur-xl"
+        style={{
+          borderColor: "var(--border)",
+          background: "color-mix(in srgb, var(--bg) 82%, transparent)",
+        }}
+      >
+        <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-2.5 sm:px-6">
+          <div className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "var(--accent)" }} />
+            <span className="text-sm font-semibold tracking-tight" style={{ color: "var(--heading)" }}>
               ДТП Аналитика
-            </h1>
-            <RegionSummary />
-          </motion.div>
-          <div className="flex items-center gap-2.5">
+            </span>
+          </div>
+
+          <DesktopNav />
+
+          <div className="ml-auto flex items-center gap-2">
             {app.regionLoading && (
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-700 border-t-orange-500" />
+              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-700 border-t-orange-500" />
             )}
             <ProfileBar />
             <ThemeSettings />
           </div>
         </div>
-
-        <nav className="mx-auto max-w-7xl overflow-x-auto px-4 sm:px-6">
-          <div className="flex gap-1 pb-px">
-            {SECTIONS.map((s) => (
-              <NavLink
-                key={s.to}
-                to={{ pathname: s.to, search: location.search }}
-                title={s.hint}
-                className={({ isActive }) =>
-                  `relative whitespace-nowrap rounded-t-xl px-4 py-2.5 text-sm font-medium transition-colors ${
-                    isActive ? "text-white" : "text-slate-400 hover:text-slate-200"
-                  }`
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    {isActive && (
-                      <motion.span
-                        layoutId="tab-pill"
-                        className="absolute inset-0 rounded-t-xl ring-1 ring-inset"
-                        style={{
-                          background:
-                            "linear-gradient(to bottom, color-mix(in srgb, var(--accent) 26%, transparent), transparent)",
-                          boxShadow: "inset 0 1px 0 color-mix(in srgb, var(--accent) 45%, transparent)",
-                          // @ts-expect-error css custom prop
-                          "--tw-ring-color": "color-mix(in srgb, var(--accent) 35%, transparent)",
-                        }}
-                        transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                      />
-                    )}
-                    <span className="relative mr-1.5">{s.icon}</span>
-                    <span className="relative">{s.label}</span>
-                  </>
-                )}
-              </NavLink>
-            ))}
-          </div>
-        </nav>
       </header>
 
-      <main className="mx-auto max-w-7xl space-y-4 px-4 py-6 sm:px-6">
+      <main className="mx-auto max-w-6xl space-y-6 px-4 pb-24 pt-5 sm:px-6 md:pb-10">
         <RegionHint />
         <AnimatePresence mode="wait">
           <motion.div
@@ -156,7 +96,9 @@ function Shell() {
         </AnimatePresence>
       </main>
 
-      <footer className="mx-auto max-w-7xl px-4 text-center text-xs text-slate-600 sm:px-6">
+      <BottomNav />
+
+      <footer className="mx-auto max-w-6xl px-4 pb-24 text-center text-xs sm:px-6 md:pb-6" style={{ color: "var(--muted)" }}>
         Данные:{" "}
         <a
           href={app.meta.source_page}

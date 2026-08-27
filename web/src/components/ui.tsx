@@ -115,3 +115,58 @@ export function Badge({ children, tone = "slate" }: { children: ReactNode; tone?
 
 export const inputCls =
   "rounded-lg border border-slate-700/80 bg-slate-900/70 px-2.5 py-1.5 text-xs text-slate-200 outline-none transition focus:border-orange-500/60 focus:ring-2 focus:ring-orange-500/20 max-w-[240px]";
+
+/**
+ * Секция без коробки — открытая композиция.
+ *
+ * `Card` перестаёт быть универсальной единицей страницы. Раньше каждый
+ * кусок содержимого был обёрнут в скруглённую панель с рамкой, и весь
+ * экран говорил «я набор виджетов»: двадцать одинаковых прямоугольников,
+ * ни один из которых не важнее другого.
+ *
+ * Правило разделения:
+ *   Card    — самостоятельный объект: вердикт, карточка ДТП, то, чем делятся
+ *   Section — всё остальное: график с выводом, таблица, список
+ *
+ * Секции отделяются расстоянием и тонкой линией, а не рамкой. Это и есть
+ * «структура должна ощущаться, а не быть нарисована бордерами».
+ */
+export function Section({
+  title,
+  lead,
+  aside,
+  children,
+  divider = true,
+}: {
+  title?: ReactNode;
+  /** Строка-вывод: то, что человек должен унести, не разглядывая график. */
+  lead?: ReactNode;
+  aside?: ReactNode;
+  children: ReactNode;
+  divider?: boolean;
+}) {
+  return (
+    <section
+      className={divider ? "border-t pt-6" : ""}
+      style={divider ? { borderColor: "var(--border)" } : undefined}
+    >
+      {(title || aside) && (
+        <header className="mb-3 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            {title && (
+              <h2
+                className="text-[11px] font-semibold uppercase tracking-[0.12em]"
+                style={{ color: "var(--muted)" }}
+              >
+                {title}
+              </h2>
+            )}
+            {lead && <p className="lvl-finding mt-1.5">{lead}</p>}
+          </div>
+          {aside && <div className="shrink-0">{aside}</div>}
+        </header>
+      )}
+      {children}
+    </section>
+  );
+}

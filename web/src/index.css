@@ -38,6 +38,21 @@ textarea {
   font-size: max(16px, 1em);
 }
 
+/* ---------- типографика ---------- */
+:root {
+  --font-sans: "IBM Plex Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  /* Mono — для чисел, координат, n и метаданных: у цифр одинаковая
+     ширина, поэтому колонки не пляшут при смене значений. */
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+html { font-family: var(--font-sans); }
+
+/* Числовые данные набираются моноширинным: это и есть картографический
+   характер продукта — координаты, выборки, доли выглядят как показания
+   прибора, а не как обычный текст. */
+.num { font-family: var(--font-mono); font-feature-settings: "tnum" 1; }
+
 /* ---------- палитры тем ---------- */
 :root {
   --accent: #f97316;

@@ -53,7 +53,7 @@ export default function BrandVerdictCard({
           <span className="h-2 w-2 rounded-full" style={{ backgroundColor: "var(--accent)" }} />
           <span className="lvl-meta font-semibold uppercase text-slate-400">ДТП Аналитика</span>
         </div>
-        <span className="lvl-meta">{app.meta.date_min?.slice(0, 4)}–{app.meta.date_max?.slice(0, 4)}</span>
+        <span className="lvl-meta num">{app.meta.date_min?.slice(0, 4)}–{app.meta.date_max?.slice(0, 4)}</span>
       </div>
 
       {/* Кто с кем */}
@@ -67,7 +67,8 @@ export default function BrandVerdictCard({
       <p className="lvl-verdict mt-3">{main ? main.text : noDifferenceText(nameA, nameB)}</p>
 
       <p className="lvl-meta mt-2">
-        Выборка: {nf.format(sample)} ДТП по меньшей из марок · открытые данные ГИБДД
+        Выборка: <span className="num">{nf.format(sample)}</span> ДТП по меньшей из марок · открытые
+        данные ГИБДД
       </p>
 
       {/* Находки */}
@@ -147,11 +148,11 @@ function FindingRow({
           {finding.evidence.map(([label, value]) => (
             <div key={label} className="flex items-baseline justify-between gap-3">
               <dt className="lvl-support">{label}</dt>
-              <dd className="lvl-support font-semibold text-slate-200">{value}</dd>
+              <dd className="lvl-support num font-semibold text-slate-200">{value}</dd>
             </div>
           ))}
           <div className="lvl-meta pt-0.5">
-            n = {nf.format(finding.n)}
+            <span className="num">n = {nf.format(finding.n)}</span>
             {finding.kind === "descriptive" && " · счёт внутри выборки, не сравнение с базой"}
           </div>
         </dl>

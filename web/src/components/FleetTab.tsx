@@ -7,7 +7,7 @@ import { useApp } from "../state/AppState";
 import { useTheme } from "../state/ThemeContext";
 import type { BrandDetail, BrandsFile, CulpritBrand } from "../lib/types";
 import EChart from "./EChart";
-import { Badge, Card } from "./ui";
+import { Badge, Card, Section } from "./ui";
 import type * as echarts from "echarts";
 
 /** Популярные русские названия марок → написание в данных */
@@ -129,7 +129,7 @@ export default function FleetTab() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Вердикт стоит ПЕРВЫМ в DOM, выше выбора.
           Раньше над ним всегда была карточка с полем ввода, и на телефоне
           результат уезжал под сгиб ровно в тот момент, когда человек его
@@ -152,13 +152,14 @@ export default function FleetTab() {
         );
       })()}
 
-      <Card
+      <Section
         title={selected.length >= 2 ? "Изменить сравнение" : "Сравнение марок"}
-        subtitle={
+        lead={
           selected.length >= 2
             ? undefined
             : "Что отличает одну марку от другой в 1,6 млн записей ГИБДД"
         }
+        divider={selected.length >= 2}
       >
         <BrandPicker
           brandsFile={brandsFile}
@@ -168,7 +169,7 @@ export default function FleetTab() {
             compareRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
           }
         />
-      </Card>
+      </Section>
 
       {/* SearchResults и старая строка поиска в шапке убраны: это был
           дублирующий путь выбора марки — BrandPicker теперь единственная
@@ -178,9 +179,9 @@ export default function FleetTab() {
 
       {selected.length === 0 && (
         <>
-          <Card
+          <Section
             title="Рейтинг марок"
-            subtitle={`Кликни на марку, чтобы добавить к сравнению · сортировка: ${sortTitle(sortKey)} · базовая доля виновников ${Math.round(baselineShare * 100)}%`}
+            lead={`Базовая доля виновников по автопарку — ${Math.round(baselineShare * 100)}%. Марка выше неё чаще оказывается виновной стороной.`}
             aside={
               <div className="flex gap-1 rounded-lg bg-slate-800/70 p-1">
                 <button onClick={() => setShowAll(false)} className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${!showAll ? "text-white" : "text-slate-400 hover:text-slate-200"}`} style={!showAll ? { backgroundColor: "var(--accent)" } : undefined}>Топ-25</button>
@@ -196,7 +197,7 @@ export default function FleetTab() {
               selected={selected}
               onToggle={toggleBrand}
             />
-          </Card>
+          </Section>
         </>
       )}
 
@@ -204,14 +205,19 @@ export default function FleetTab() {
           не изменилась» — два одинаковых столбика с индексом агрессии.
           Его роль полностью закрывает BrandVerdictCard выше. */}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="min-w-0" title="Марки автомобилей в ДТП" subtitle={app.scope === "ALL" ? "Марки первого ТС" : "Топ марок региона"}>
-          <TopBrandsChart accent={theme.accentMain} allBrands={allBrands} />
-        </Card>
-        <Card className="min-w-0" title="Стаж вождения и тяжесть ДТП" subtitle="Национальные данные">
-          <ExperienceCharts />
-        </Card>
-      </div>
+      <Section
+        title="Марки в ДТП"
+        lead={app.scope === "ALL" ? "Марка первого транспортного средства по всей России" : "Топ марок региона"}
+      >
+        <TopBrandsChart accent={theme.accentMain} allBrands={allBrands} />
+      </Section>
+
+      <Section
+        title="Стаж и тяжесть"
+        lead="Доля тяжёлых исходов растёт вместе со стажем, а не падает — база по стране 67,9%."
+      >
+        <ExperienceCharts />
+      </Section>
     </div>
   );
 }

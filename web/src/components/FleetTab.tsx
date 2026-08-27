@@ -205,10 +205,10 @@ export default function FleetTab() {
           Его роль полностью закрывает BrandVerdictCard выше. */}
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Марки автомобилей в ДТП" subtitle={app.scope === "ALL" ? "Марки первого ТС" : "Топ марок региона"}>
+        <Card className="min-w-0" title="Марки автомобилей в ДТП" subtitle={app.scope === "ALL" ? "Марки первого ТС" : "Топ марок региона"}>
           <TopBrandsChart accent={theme.accentMain} allBrands={allBrands} />
         </Card>
-        <Card title="Стаж вождения и тяжесть ДТП" subtitle="Национальные данные">
+        <Card className="min-w-0" title="Стаж вождения и тяжесть ДТП" subtitle="Национальные данные">
           <ExperienceCharts />
         </Card>
       </div>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Combobox, { type ComboOption } from "./Combobox";
 import { nf } from "../lib/format";
 import { isRealBrand } from "../lib/findings";
@@ -25,11 +25,14 @@ export default function BrandPicker({
   selected,
   onChange,
   onGoToCompare,
+  openSignal = 0,
 }: {
   brandsFile: BrandsFile;
   selected: string[];
   onChange: (next: string[]) => void;
   onGoToCompare: () => void;
+  /** Счётчик-триггер: рост значения раскрывает выбор и фокусирует поиск. */
+  openSignal?: number;
 }) {
   const { profile } = useProfile();
   const [query, setQuery] = useState("");
@@ -42,9 +45,31 @@ export default function BrandPicker({
    * ровно в тот момент, когда человек получил результат.
    */
   const [expanded, setExpanded] = useState(false);
-  // Сворачиваемся уже на одной марке: досье по ней показывается сразу,
-  // и развёрнутый выбор так же уводил бы результат под сгиб.
-  const collapsed = selected.length >= 1 && !expanded;
+  /*
+   * Сворачиваемся только когда сравнение уже собрано (две марки).
+   *
+   * Раньше сворачивались и на одной — и этим прятали всю функцию
+   * сравнения за крошечную ссылку «изменить выбор»: поисковая строка
+   * исчезала, и понять, что можно добавить вторую марку, было неоткуда.
+   *
+   * Расчёт, которым я это оправдывал, был для карточки ПАРЫ (620px).
+   * Досье одной марки короче: 380–550px, и с развёрнутым выбором даёт
+   * 594 из 844 — место было с запасом.
+   */
+  const collapsed = selected.length >= 2 && !expanded;
+
+  const boxRef = useRef<HTMLDivElement>(null);
+  const firstSignal = useRef(openSignal);
+  useEffect(() => {
+    if (openSignal === firstSignal.current) return;
+    setExpanded(true);
+    // Скролл после раскрытия: без него поле появляется за пределами экрана,
+    // и нажатие кнопки выглядит как «ничего не произошло».
+    requestAnimationFrame(() => {
+      boxRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      boxRef.current?.querySelector("input")?.focus();
+    });
+  }, [openSignal]);
 
   const names = useMemo(
     () =>
@@ -91,7 +116,7 @@ export default function BrandPicker({
     const next = selected.length >= 3 ? [...selected.slice(1), name] : [...selected, name];
     onChange(next);
     setQuery(""); // жалоба №2: строка больше не висит
-    if (next.length >= 1) {
+    if (next.length >= 2) {
       setExpanded(false);
       // Вердикт появляется ВЫШЕ выбора, то есть вне поля зрения.
       // Без этого человек добавляет вторую марку и не видит, что
@@ -135,7 +160,7 @@ export default function BrandPicker({
   }
 
   return (
-    <div className="space-y-3">
+    <div ref={boxRef} className="space-y-3">
       <Combobox<string>
         value={query}
         placeholder="Найти марку: BMW, Toyota, ВАЗ…"

@@ -39,6 +39,8 @@ export default function FleetTab() {
   const [brandsFile, setBrandsFile] = useState<BrandsFile | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const compareRef = useRef<HTMLDivElement>(null);
+  /** Растёт при нажатии «сравнить с другой маркой» — раскрывает выбор. */
+  const [openPicker, setOpenPicker] = useState(0);
 
   /**
    * Имя марки → реальный ключ в данных.
@@ -142,17 +144,23 @@ export default function FleetTab() {
         if (keys.length === 0) return null;
         return (
           <div ref={compareRef} className="scroll-mt-28">
-            <BrandVerdictCard brandsFile={brandsFile} names={keys.slice(0, 2)} />
+            <BrandVerdictCard
+              brandsFile={brandsFile}
+              names={keys.slice(0, 2)}
+              onAddSecond={() => setOpenPicker((n) => n + 1)}
+            />
           </div>
         );
       })()}
 
       <Section
-        title={selected.length >= 1 ? "Изменить выбор" : "Марки в ДТП"}
+        title={selected.length >= 2 ? "Изменить выбор" : selected.length === 1 ? "Добавить вторую марку" : "Марки в ДТП"}
         lead={
-          selected.length >= 1
-            ? undefined
-            : "Выбери марку — покажем, чем она отличается от среднего по автопарку. Добавь вторую, чтобы сравнить напрямую."
+          selected.length === 0
+            ? "Выбери марку — покажем, чем она отличается от среднего по автопарку. Добавь вторую, чтобы сравнить напрямую."
+            : selected.length === 1
+              ? "Выбери вторую марку, чтобы сравнить их между собой."
+              : undefined
         }
         divider={selected.length >= 1}
       >
@@ -163,6 +171,7 @@ export default function FleetTab() {
           onGoToCompare={() =>
             compareRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
           }
+          openSignal={openPicker}
         />
       </Section>
 

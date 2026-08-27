@@ -27,10 +27,13 @@ import { useProfile } from "../state/ProfileContext";
 export default function BrandVerdictCard({
   brandsFile,
   names,
+  onAddSecond,
 }: {
   brandsFile: BrandsFile;
   /** одна или две марки; ключи уже разрешены к реальным */
   names: string[];
+  /** Раскрыть выбор, чтобы добавить вторую марку. */
+  onAddSecond?: () => void;
 }) {
   const app = useApp();
   const { profile } = useProfile();
@@ -95,17 +98,29 @@ export default function BrandVerdictCard({
       }
       findings={rest}
       action={
-        <ShareButton
-          path="/fleet"
-          params={{ brand: names[0], vs: names[1] ?? null }}
-          title={`${names.join(" × ")}: ${main ? main.text : "по данным ГИБДД"}`}
-          label="Поделиться"
-          className="lvl-action !border-0 !text-white"
-        />
+        <div className="flex flex-wrap gap-2">
+          {/* Следующее действие стоит в самой карточке и на уровне
+              действия. Раньше «добавить вторую марку» было пассивной
+              подписью внизу, а поиск прятался за ссылкой «изменить
+              выбор» — понять, что сравнение вообще существует, было
+              неоткуда. */}
+          {solo && onAddSecond && (
+            <button onClick={onAddSecond} className="lvl-action">
+              + Сравнить с другой маркой
+            </button>
+          )}
+          <ShareButton
+            path="/fleet"
+            params={{ brand: names[0], vs: names[1] ?? null }}
+            title={`${names.join(" × ")}: ${main ? main.text : "по данным ГИБДД"}`}
+            label="Поделиться"
+            className={solo ? "lvl-action-quiet" : "lvl-action !border-0 !text-white"}
+          />
+        </div>
       }
       footnote={
         solo
-          ? "Сравнение со средним по всему автопарку. Добавь вторую марку, чтобы сравнить их напрямую."
+          ? "Показатели сравниваются со средним по всему автопарку."
           : !mine
             ? "Укажи свою марку в профиле — она будет подсвечена в сравнении."
             : undefined

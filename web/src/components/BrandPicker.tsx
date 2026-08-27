@@ -89,7 +89,13 @@ export default function BrandPicker({
     const next = selected.length >= 3 ? [...selected.slice(1), name] : [...selected, name];
     onChange(next);
     setQuery(""); // жалоба №2: строка больше не висит
-    if (next.length >= 2) setExpanded(false);
+    if (next.length >= 2) {
+      setExpanded(false);
+      // Вердикт появляется ВЫШЕ выбора, то есть вне поля зрения.
+      // Без этого человек добавляет вторую марку и не видит, что
+      // что-то вообще произошло.
+      requestAnimationFrame(() => onGoToCompare());
+    }
   };
 
   const remove = (name: string) => onChange(selected.filter((x) => x !== name));

@@ -40,6 +40,21 @@ export default function FleetTab() {
   const [selected, setSelected] = useState<string[]>([]);
   const compareRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * Имя марки → реальный ключ в данных.
+   *
+   * Из URL марка приходит в верхнем регистре, а в brands.json 13 ключей
+   * записаны иначе («НефАЗ»). Прямое обращение brands["НЕФАЗ"] вернуло бы
+   * undefined и уронило бы весь раздел — не сломанной карточкой, а белым
+   * экраном, потому что compareBrands получил бы undefined.
+   */
+  const resolveBrand = (name: string): string | null => {
+    if (!brandsFile) return null;
+    if (brandsFile.brands[name]) return name;
+    const want = name.toUpperCase();
+    return Object.keys(brandsFile.brands).find((k) => k.toUpperCase() === want) ?? null;
+  };
+
   // ---- пермалинк дуэли (контракт §2/§4) ----
   const writeUrl = useUrlWriter();
 
@@ -115,9 +130,35 @@ export default function FleetTab() {
 
   return (
     <div className="space-y-4">
+      {/* Вердикт стоит ПЕРВЫМ в DOM, выше выбора.
+          Раньше над ним всегда была карточка с полем ввода, и на телефоне
+          результат уезжал под сгиб ровно в тот момент, когда человек его
+          получил. Теперь выбор уходит вниз, как только сравнение собрано:
+          менять марки нужно редко, а читать результат — сразу. */}
+      {(() => {
+        if (selected.length < 2) return null;
+        const ka = resolveBrand(selected[0]);
+        const kb = resolveBrand(selected[1]);
+        if (!ka || !kb) return null;
+        return (
+          <div ref={compareRef} className="scroll-mt-28">
+            <BrandVerdictCard
+              nameA={ka}
+              a={brandsFile.brands[ka]}
+              nameB={kb}
+              b={brandsFile.brands[kb]}
+            />
+          </div>
+        );
+      })()}
+
       <Card
-        title="Сравнение марок"
-        subtitle="Что отличает одну марку от другой в 1,6 млн записей ГИБДД"
+        title={selected.length >= 2 ? "Изменить сравнение" : "Сравнение марок"}
+        subtitle={
+          selected.length >= 2
+            ? undefined
+            : "Что отличает одну марку от другой в 1,6 млн записей ГИБДД"
+        }
       >
         <BrandPicker
           brandsFile={brandsFile}
@@ -128,19 +169,6 @@ export default function FleetTab() {
           }
         />
       </Card>
-
-      {/* Вердикт идёт первым и до графиков: человек пришёл за ответом,
-          график — доказательство, а не сам ответ. */}
-      {selected.length >= 2 && (
-        <div ref={compareRef} className="scroll-mt-28">
-          <BrandVerdictCard
-            nameA={selected[0]}
-            a={brandsFile.brands[selected[0]]}
-            nameB={selected[1]}
-            b={brandsFile.brands[selected[1]]}
-          />
-        </div>
-      )}
 
       {/* SearchResults и старая строка поиска в шапке убраны: это был
           дублирующий путь выбора марки — BrandPicker теперь единственная
@@ -172,9 +200,9 @@ export default function FleetTab() {
         </>
       )}
 
-      {selected.length >= 2 && (
-        <CompareChart selected={selected} rows={allBrands} brandsFile={brandsFile} />
-      )}
+      {/* Старый CompareChart удалён: это и была «карточка внизу, которая
+          не изменилась» — два одинаковых столбика с индексом агрессии.
+          Его роль полностью закрывает BrandVerdictCard выше. */}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Марки автомобилей в ДТП" subtitle={app.scope === "ALL" ? "Марки первого ТС" : "Топ марок региона"}>
@@ -192,144 +220,6 @@ function sortTitle(k: SortKey): string {
   return k === "total" ? "число ДТП" : k === "culpritShare" ? "доля виновника" : "агрессивность";
 }
 
-/* ============================ поиск ============================ */
-function SearchResults({
-  query,
-  brandsFile,
-  nationalRows,
-  baselineShare,
-  selected,
-  onToggle,
-  accentMain,
-}: {
-  query: string;
-  brandsFile: BrandsFile;
-  nationalRows: CulpritBrand[];
-  baselineShare: number;
-  selected: string[];
-  onToggle: (n: string) => void;
-  accentMain: string;
-}) {
-  const q = query.trim().toUpperCase();
-  if (!q) return null;
-
-  const aliasTarget = ALIASES[q];
-  const natByName = new Map(nationalRows.map((b) => [b.brand, b]));
-  const matches = Object.keys(brandsFile.brands)
-    .filter((name) => name.toUpperCase().includes(q) || (aliasTarget && name.toUpperCase() === aliasTarget))
-    .sort((a, b) => (natByName.get(b)?.total ?? 0) - (natByName.get(a)?.total ?? 0));
-
-  return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {matches.length === 0 && (
-        <p className="col-span-full rounded-xl border border-slate-800 bg-slate-900/40 p-6 text-center text-sm text-slate-500">
-          Марка «{query}» не найдена. Попробуй латиницу: BMW, TOYOTA, KIA…
-        </p>
-      )}
-      {matches.slice(0, 6).map((name) => (
-        <BrandCard
-          key={name}
-          name={name}
-          detail={brandsFile.brands[name]}
-          nationalRow={natByName.get(name)}
-          baselineShare={baselineShare}
-          isSelected={selected.includes(name)}
-          onToggle={() => onToggle(name)}
-          accentMain={accentMain}
-        />
-      ))}
-    </div>
-  );
-}
-
-/* ============================ карточка марки ============================ */
-function BrandCard({
-  name,
-  detail,
-  nationalRow,
-  baselineShare,
-  isSelected,
-  onToggle,
-  accentMain,
-}: {
-  name: string;
-  detail: BrandDetail;
-  nationalRow?: CulpritBrand;
-  baselineShare: number;
-  isSelected: boolean;
-  onToggle: () => void;
-  accentMain: string;
-}) {
-  const culprit = nationalRow?.culprit ?? detail.culprit;
-  const victim = nationalRow?.victim ?? detail.victim;
-  const share = culprit + victim > 0 ? culprit / (culprit + victim) : 0.5;
-  const ratio = baselineShare > 0 ? share / baselineShare : 1;
-  const verdict =
-    ratio >= 1.25
-      ? { text: `чаще виновник в ${ratio.toFixed(2)}× к среднему`, tone: "red" as const }
-      : ratio <= 0.85
-        ? { text: `реже виновник — ×${ratio.toFixed(2)} к среднему`, tone: "green" as const }
-        : { text: `на уровне среднего (×${ratio.toFixed(2)})`, tone: "slate" as const };
-  const totalSev = detail.sev[0] + detail.sev[1] + detail.sev[2];
-
-  return (
-    <motion.div layout>
-      <Card
-        className={`h-full ${isSelected ? "glow-ring" : ""}`}
-        title={
-          <span className="flex items-center gap-2">
-            🚘 {name}
-            <Badge tone={verdict.tone}>{verdict.text}</Badge>
-          </span>
-        }
-        subtitle={`${(detail.total).toLocaleString("ru-RU")} записей с этой маркой`}
-      >
-        <div className="mb-3 grid grid-cols-3 gap-2 text-center text-xs">
-          <div className="rounded-lg bg-red-500/10 p-2">
-            <div className="text-lg font-bold text-red-300">{culprit.toLocaleString("ru-RU")}</div>
-            <div className="text-[10px] uppercase tracking-wider text-slate-500">виновник</div>
-          </div>
-          <div className="rounded-lg bg-sky-500/10 p-2">
-            <div className="text-lg font-bold text-sky-300">{victim.toLocaleString("ru-RU")}</div>
-            <div className="text-[10px] uppercase tracking-wider text-slate-500">жертва</div>
-          </div>
-          <div className="rounded-lg p-2" style={{ backgroundColor: `color-mix(in srgb, ${accentMain} 12%, transparent)` }}>
-            <div className="text-lg font-bold" style={{ color: accentMain }}>{ratio.toFixed(2)}×</div>
-            <div className="text-[10px] uppercase tracking-wider text-slate-500">индекс агрессии</div>
-          </div>
-        </div>
-
-        <SevDonut sev={detail.sev} total={totalSev} />
-
-        {(detail.by_year?.length ?? 0) > 1 && <YearTrend by_year={detail.by_year} accent={accentMain} />}
-
-        {(detail.by_region?.length ?? 0) > 0 && <RegionSpread by_region={detail.by_region} accent={accentMain} />}
-
-        {detail.violations.length > 0 && (
-          <div className="mt-3 space-y-1">
-            <div className="text-[11px] uppercase tracking-wider text-slate-500">Топ-нарушения водителей</div>
-            {detail.violations.slice(0, 3).map(([t, c]) => (
-              <div key={t} className="flex items-baseline justify-between gap-2 rounded-md bg-slate-800/40 px-2 py-1 text-[11px]">
-                <span className="leading-snug text-slate-300">{t}</span>
-                <span className="shrink-0 tabular-nums text-slate-500">{c.toLocaleString("ru-RU")}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <button
-          onClick={onToggle}
-          className={`mt-3 w-full rounded-lg px-3 py-2 text-xs font-medium transition ${
-            isSelected ? "text-white" : "bg-slate-800 text-slate-200 hover:bg-slate-700"
-          }`}
-          style={isSelected ? { backgroundColor: accentMain } : undefined}
-        >
-          {isSelected ? "✓ в сравнении" : "+ добавить к сравнению"}
-        </button>
-      </Card>
-    </motion.div>
-  );
-}
 
 function SevDonut({ sev, total }: { sev: [number, number, number]; total: number }) {
   const option: echarts.EChartsOption = useMemo(
@@ -501,86 +391,6 @@ function RankingTable({
   );
 }
 
-/* ============================ сравнение ============================ */
-function CompareChart({
-  selected,
-  rows,
-  brandsFile,
-}: {
-  selected: string[];
-  rows: CulpritBrand[];
-  brandsFile: BrandsFile;
-}) {
-  const byName = new Map(rows.map((r) => [r.brand, r]));
-  const palette = ["#ef4444", "#38bdf8", "#34d399"];
-
-  const option: echarts.EChartsOption = useMemo(() => {
-    const names = selected;
-    const aggr = names.map((n) => byName.get(n)?.aggr ?? 0);
-    const shares = names.map((n) => {
-      const r = byName.get(n);
-      return r && r.culprit + r.victim > 0 ? Math.round((r.culprit / (r.culprit + r.victim)) * 100) : 0;
-    });
-    const totals = names.map((n) => byName.get(n)?.total ?? 0);
-    return {
-      tooltip: { trigger: "axis" },
-      legend: { top: 0, textStyle: { color: "#94a3b8" } },
-      grid: { left: 50, right: 50, top: 56, bottom: 30 },
-      xAxis: { type: "category", data: names, axisLabel: { fontWeight: "bold" as const } },
-      yAxis: [
-        { type: "value", name: "агрессия ×" },
-        { type: "value", name: "% вины / ДТП", max: 100 },
-      ],
-      series: [
-        {
-          name: "Индекс агрессии", type: "bar", data: aggr, barWidth: 26,
-          itemStyle: { borderRadius: [6, 6, 0, 0], color: "#fb923c" },
-          label: { show: true, position: "top", color: "#94a3b8", formatter: (p: unknown) => `${(p as { value: number }).value.toFixed(2)}×` },
-        },
-        {
-          name: "Доля вины, %", type: "bar", yAxisIndex: 1, data: shares, barWidth: 26,
-          itemStyle: { borderRadius: [6, 6, 0, 0], color: "#ef4444aa" },
-        },
-        {
-          name: "Всего ДТП", type: "line", yAxisIndex: 1, smooth: true,
-          data: totals, lineStyle: { width: 2, type: "dashed", color: "#38bdf8" }, itemStyle: { color: "#38bdf8" },
-        },
-      ],
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected.join("|"), rows]);
-
-  const sevRows = selected.map((n) => ({ n, d: brandsFile.brands[n] }));
-
-  return (
-    <Card
-      title="Доказательства"
-      subtitle="Индекс агрессии = доля виновника марки относительно средней по автопарку"
-    >
-      <EChart option={option} height={320} />
-      <div className="mt-3 grid gap-2 sm:grid-cols-3">
-        {sevRows.map(({ n, d }, i) =>
-          d ? (
-            <div key={n} className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 text-xs">
-              <div className="mb-1 flex items-center gap-2 font-semibold text-slate-200">
-                <span className="h-2 w-2 rounded-full" style={{ background: palette[i % 3] }} />
-                {n}
-              </div>
-              <div className="space-y-0.5 text-slate-400">
-                {(d.sev).map((v, j) => (
-                  <div key={j} className="flex justify-between">
-                    <span style={{ color: SEV_COLORS[j] }}>{SEV_NAMES[j]}</span>
-                    <span className="tabular-nums">{d.total > 0 ? Math.round((v / d.total) * 100) : 0}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null,
-        )}
-      </div>
-    </Card>
-  );
-}
 
 /* ============================ прежние блоки ============================ */
 function TopBrandsChart({ accent, allBrands }: { accent: string; allBrands: CulpritBrand[] }) {

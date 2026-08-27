@@ -26,6 +26,8 @@ jobs:
 
       - name: Download data snapshot (best-effort)
         continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/data-latest --jq '.id' 2>/dev/null || echo "")
           if [ -n "$RELEASE_ID" ]; then

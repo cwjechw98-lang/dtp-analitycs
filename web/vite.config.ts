@@ -2,11 +2,19 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
-// GitHub Pages для репозитория <user>/<repo> отдаёт сайт из подпапки /<repo>/,
-// поэтому базовый путь фиксирован и совпадает с именем репозитория.
+/**
+ * Базовый путь определяется автоматически:
+ *  · Cloudflare Pages — из корня (/) — Cloudflare задаёт CF_PAGES=1 при сборке;
+ *  · GitHub Pages — из подпапки /<repo>/ (собирается в GitHub Actions);
+ *  · локально — переопределяется переменной BASE_PATH при необходимости.
+ * Так деплой не зависит от ручной настройки переменных на хостингах.
+ */
+const base =
+  process.env.BASE_PATH ??
+  (process.env.CF_PAGES === "1" || process.env.CF_PAGES ? "/" : "/dtp-analitycs/");
+
 export default defineConfig({
-  // Cloudflare Pages отдаёт из корня, зеркало GitHub Pages — из /<repo>/.
-  base: process.env.BASE_PATH ?? "/dtp-analitycs/",
+  base,
   plugins: [react(), tailwindcss()],
   build: {
     chunkSizeWarningLimit: 1500,

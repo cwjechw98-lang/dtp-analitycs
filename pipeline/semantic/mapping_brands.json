@@ -1,0 +1,23 @@
+{
+  "comment": "Semantic Contract v1 — brand canonicalization audit. Поле brand в целом пригодно (93.7%, 376 значений). Дублей написания найдено 0. Канонизация минимальна: только источниковые агрегаты 'Прочие марки ...' выносятся в отдельные technical buckets (НЕ приравниваются к конкретному бренду). Конкретные бренды — pass-through (canonical = raw).",
+  "version": 1,
+  "raw_count": 376,
+  "findings": {
+    "writing_duplicates": 0,
+    "register_duplicates": 0,
+    "aggregate_brands": 9,
+    "aggregate_total_vehicles": 128786,
+    "known_aliases_absent": ["LADA", "ЛАДА", "Лада", "MERCEDES-BENZ", "GAZ"]
+  },
+  "mapping": {
+    "Прочие марки ТС": ["technical_bucket_other", "aggregate"],
+    "Прочие марки мотоциклов": ["technical_bucket_moto", "aggregate"],
+    "Прочие марки автобусов": ["technical_bucket_bus", "aggregate"],
+    "Прочие марки легковых ТС": ["technical_bucket_car", "aggregate"],
+    "Прочие марки грузовых ТС": ["technical_bucket_truck", "aggregate"],
+    "Прочие марки строительной техники": ["technical_bucket_special", "aggregate"],
+    "Прочие марки седельных тягачей": ["technical_bucket_truck", "aggregate"],
+    "Прочие марки легких коммерческих ТС": ["technical_bucket_truck", "aggregate"],
+    "Прочие марки автокранов": ["technical_bucket_special", "aggregate"]
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "comment": "Semantic Contract v1 — infrastructure (multi-value). RAW nearby[] -> {detail, group, facets[]}. Введены facets[] для составных значений (напр. школьный переход -> [pedestrian_crossing, education_children]). 'Отсутствие объектов' = none, 'Перегон' = road_context. Пешеходная зона/тротуар НЕ crossing. Generic education НЕ автоматически education_children. Transport hub НЕ roadside_service.",
+  "version": 1,
+  "raw_count": 59,
+  "groups": ["intersection", "pedestrian_crossing", "public_transport", "railway", "bridge_tunnel", "roadside_service", "education_children", "residential", "none", "road_context", "poi_other", "unknown"],
+  "mapping": {
+    "Отсутствие в непосредственной близости объектов УДС и объектов притяжения": {"detail": "no_objects", "group": "none", "facets": ["none"]},
+    "Перегон (нет объектов на месте ДТП)": {"detail": "road_segment", "group": "road_context", "facets": ["road_context"]},
+
+    "Нерегулируемый перекрёсток": {"detail": "intersection_uncontrolled", "group": "intersection", "facets": ["intersection"]},
+    "Нерегулируемый перекрёсток неравнозначных улиц (дорог)": {"detail": "intersection_uncontrolled", "group": "intersection", "facets": ["intersection"]},
+    "Нерегулируемый перекрёсток равнозначных улиц (дорог)": {"detail": "intersection_uncontrolled", "group": "intersection", "facets": ["intersection"]},
+    "Регулируемый перекрёсток": {"detail": "intersection_controlled", "group": "intersection", "facets": ["intersection"]},
+    "Регулируемый перекресток": {"detail": "intersection_controlled", "group": "intersection", "facets": ["intersection"]},
+    "Нерегулируемое пересечение с круговым движением": {"detail": "intersection_roundabout", "group": "intersection", "facets": ["intersection"]},
+
+    "Нерегулируемый пешеходный переход": {"detail": "pedestrian_crossing_uncontrolled", "group": "pedestrian_crossing", "facets": ["pedestrian_crossing"]},
+    "Регулируемый пешеходный переход": {"detail": "pedestrian_crossing_controlled", "group": "pedestrian_crossing", "facets": ["pedestrian_crossing"]},
+    "Подземный пешеходный переход": {"detail": "pedestrian_crossing_underground", "group": "pedestrian_crossing", "facets": ["pedestrian_crossing"]},
+    "Пешеходная зона": {"detail": "pedestrian_zone", "group": "pedestrian_area", "facets": ["pedestrian_area"]},
+    "Тротуар, пешеходная дорожка": {"detail": "pavement", "group": "pedestrian_area", "facets": ["pedestrian_area"]},
+    "Нерегулируемый пешеходный переход, расположенный на участке улицы или дороги, проходящей вдоль территории школы или иной детской организации": {"detail": "pedestrian_crossing_uncontrolled_school", "group": "pedestrian_crossing", "facets": ["pedestrian_crossing", "education_children"]},
+    "Регулируемый пешеходный переход, расположенный на участке улицы или дороги, проходящей вдоль территории школы или иной детской организации": {"detail": "pedestrian_crossing_controlled_school", "group": "pedestrian_crossing", "facets": ["pedestrian_crossing", "education_children"]},
+    "Нерегулируемый пешеходный переход, расположенный на участке улицы или дороги, проходящей вдоль территории школы или иного детского учреждения": {"detail": "pedestrian_crossing_uncontrolled_school", "group": "pedestrian_crossing", "facets": ["pedestrian_crossing", "education_children"]},
+    "Регулируемый пешеходный переход, расположенный на участке улицы или дороги, проходящей вдоль территории школы или иного детского учреждения": {"detail": "pedestrian_crossing_controlled_school", "group": "pedestrian_crossing", "facets": ["pedestrian_crossing", "education_children"]},
+
+    "Остановка общественного транспорта": {"detail": "public_transport_stop", "group": "public_transport", "facets": ["public_transport"]},
+    "Остановка трамвая": {"detail": "public_transport_tram_stop", "group": "public_transport", "facets": ["public_transport"]},
+    "Остановка маршрутного такси": {"detail": "public_transport_marshrutka", "group": "public_transport", "facets": ["public_transport"]},
+
+    "Регулируемый ж/д переезд без дежурного": {"detail": "railway_crossing_controlled_noguard", "group": "railway", "facets": ["railway"]},
+    "Регулируемый ж/д переезд с дежурным": {"detail": "railway_crossing_controlled_guard", "group": "railway", "facets": ["railway"]},
+    "Нерегулируемый ж/д переезд": {"detail": "railway_crossing_uncontrolled", "group": "railway", "facets": ["railway"]},
+
+    "Мост, эстакада, путепровод": {"detail": "bridge", "group": "bridge_tunnel", "facets": ["bridge_tunnel"]},
+    "Мост": {"detail": "bridge", "group": "bridge_tunnel", "facets": ["bridge_tunnel"]},
+    "Подход к мосту, эстакаде, путепроводу": {"detail": "bridge_approach", "group": "bridge_tunnel", "facets": ["bridge_tunnel"]},
+    "Эстакада, путепровод": {"detail": "viaduct", "group": "bridge_tunnel", "facets": ["bridge_tunnel"]},
+    "Тоннель": {"detail": "tunnel", "group": "bridge_tunnel", "facets": ["bridge_tunnel"]},
+
+    "АЗС": {"detail": "gas_station", "group": "roadside_service", "facets": ["roadside_service"]},
+    "Объект торговли, общественного питания на автодороге вне НП": {"detail": "roadside_service_point", "group": "roadside_service", "facets": ["roadside_service"]},
+    "Одиночный торговый объект, являющийся местом притяжения транспорта и (или) пешеходов": {"detail": "roadside_service_point", "group": "roadside_service", "facets": ["roadside_service"]},
+    "Крупный торговый объект (являющийся объектом массового тяготения пешеходов и (или) транспорта)": {"detail": "roadside_service_point", "group": "roadside_service", "facets": ["roadside_service"]},
+    "Автостоянка (отделенная от проезжей части)": {"detail": "parking_separated", "group": "parking", "facets": ["parking"]},
+    "Автостоянка (не отделённая от проезжей части)": {"detail": "parking_integrated", "group": "parking", "facets": ["parking"]},
+    "Зоны отдыха": {"detail": "rest_area", "group": "roadside_service", "facets": ["roadside_service"]},
+    "Аэропорт, ж/д вокзал (ж/д станция), речной или морской порт (пристань)": {"detail": "transport_hub", "group": "transport_hub", "facets": ["transport_hub"]},
+
+    "Школа либо иная детская (в т.ч. дошкольная) организация": {"detail": "school_children", "group": "education_children", "facets": ["education_children"]},
+    "Школа либо иное детское (в т.ч. дошкольное) учреждение": {"detail": "school_children", "group": "education_children", "facets": ["education_children"]},
+    "Иное образовательное учреждение": {"detail": "education_other", "group": "education_general", "facets": ["education_general"]},
+    "Иная образовательная организация": {"detail": "education_other", "group": "education_general", "facets": ["education_general"]},
+
+    "Жилые дома индивидуальной застройки": {"detail": "residential_individual", "group": "residential", "facets": ["residential"]},
+    "Многоквартирные жилые дома": {"detail": "residential_apartments", "group": "residential", "facets": ["residential"]},
+    "Внутридворовая территория": {"detail": "residential_yard", "group": "residential", "facets": ["residential"]},
+    "Гаражные постройки (гаражный кооператив, товарищество либо иное место концентрированного размещения гаражей)": {"detail": "residential_garages", "group": "residential", "facets": ["residential"]},
+
+    "Административные здания": {"detail": "administrative_building", "group": "poi_other", "facets": ["poi_other"]},
+    "Объект (здание, сооружение) религиозного культа": {"detail": "religious_building", "group": "poi_other", "facets": ["poi_other"]},
+    "Спортивные и развлекательные объекты": {"detail": "sport_entertainment", "group": "poi_other", "facets": ["poi_other"]},
+    "Объект строительства": {"detail": "construction", "group": "poi_other", "facets": ["poi_other"]},
+    "Производственное предприятие": {"detail": "industrial", "group": "poi_other", "facets": ["poi_other"]},
+    "Медицинские (лечебные) организации": {"detail": "medical", "group": "poi_other", "facets": ["poi_other"]},
+    "Лечебные учреждения": {"detail": "medical", "group": "poi_other", "facets": ["poi_other"]},
+    "Иной объект": {"detail": "other_object", "group": "poi_other", "facets": ["poi_other"]},
+    "Иное место": {"detail": "other_place", "group": "poi_other", "facets": ["poi_other"]},
+    "СП ДПС (КПМ)": {"detail": "police_post", "group": "poi_other", "facets": ["poi_other"]},
+
+    "Выезд с прилегающей территории": {"detail": "adjacent_exit", "group": "road_context", "facets": ["road_context"]},
+    "Место для перегона скота": {"detail": "livestock_crossing", "group": "road_context", "facets": ["road_context"]},
+    "Ледовая переправа(официально открытая и оборудованная)": {"detail": "ice_crossing", "group": "road_context", "facets": ["road_context"]},
+    "Ледовая переправа": {"detail": "ice_crossing", "group": "road_context", "facets": ["road_context"]},
+    "Стихийно возникшая (не предусмотренная) ледовая переправа": {"detail": "ice_crossing_unofficial", "group": "road_context", "facets": ["road_context"]}
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "comment": "Semantic Contract v1 — participant_type. RAW participants[].role -> {type, status}. Статусы: mapped (конкретный тип), other (иной участник), ambig (противоречивая роль), sentinel (source-sentinel: НЕ человек, а служебная запись отсутствия реального участника), unknown. 'без участника' это НЕ неизвестный человек — это source-sentinel/no_participant.",
+  "version": 1,
+  "raw_count": 16,
+  "types": ["driver", "passenger", "pedestrian", "cyclist", "motorcyclist", "road_worker", "traffic_police", "public_safety_worker", "other", "unknown"],
+  "statuses": ["mapped", "other", "ambig", "sentinel", "unknown"],
+  "mapping": {
+    "Водитель": ["driver", "mapped"],
+    "Пассажир": ["passenger", "mapped"],
+    "Пешеход": ["pedestrian", "mapped"],
+    "Велосипедист": ["cyclist", "mapped"],
+    "Велосипедист (не применяется)": ["cyclist", "mapped"],
+    "Работник дорожной организации, осуществляющий работы на проезжей части (обочине и т.д.)": ["road_worker", "mapped"],
+    "Работник иных организаций (коммунальных служб, электросетей, водоканала и т.д.), осуществляющий работы на проезжей части (обочине и т.д.)": ["road_worker", "mapped"],
+    "Сотрудник ДПС (ГИБДД), выполняющий служебные обязанности на проезжей части (обочине и т.д.)": ["traffic_police", "mapped"],
+    "Сотрудник полиции (кроме ГИБДД), сотрудник (военнослужащий) Росгвардии, Минобороны, ФСБ, ФСО, МЧС и т.д., выполняющий служебные обязанности на проезжей части (обочине и т.д.)": ["public_safety_worker", "mapped"],
+    "Пешеход, перед ДТП находившийся в (на) ТС в качестве водителя или пешеход, перед ДТП находившийся в (на) ТС в качестве пассажира": ["pedestrian", "mapped", "pedestrian_from_vehicle"],
+    "Иной участник": ["other", "other"],
+    "Погонщик скота": ["other", "other"],
+    "Всадник": ["other", "other"],
+    "Лицо, осуществляющее торговлю (иную деятельность) на проезжей части (обочине и т.д.)": ["other", "other"],
+    "Лицо, осуществляющее умышленное перекрытие проезжей части": ["other", "other"],
+    "без участника": ["source_sentinel_no_participant", "sentinel"]
+  }
+}

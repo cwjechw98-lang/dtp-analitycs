@@ -1,0 +1,316 @@
+{
+ "comment": "Semantic Contract v1 — crash_scheme. Источник: properties.scheme (upstream item['infoDtp']['s_dtp']). Установлено: upstream превращает коды 290,390,490,590,690,790,890,990 в None (служебные, НЕ схемы). Справочник имён для остальных 60 кодов НЕ найден — они unresolved (только код, без человекочитаемого смысла).",
+ "version": 1,
+ "raw_count": 68,
+ "provenance": {
+  "discovery": {
+   "what": "Установлено, что 8 кодов схемы являются служебными (upstream превращает их в None), а не настоящими схемами.",
+   "rule_upstream": "if item['infoDtp']['s_dtp'] not in [\"290\",\"390\",\"490\",\"590\",\"690\",\"790\",\"890\",\"990\"] else None",
+   "excluded_codes": [
+    "290",
+    "390",
+    "490",
+    "590",
+    "690",
+    "790",
+    "890",
+    "990"
+   ],
+   "searched_dict_of_names": false,
+   "note": "Официальный словарь имён для остальных 60 кодов НЕ найден — оставлены unresolved без угадывания."
+  },
+  "source": {
+   "repository": "https://github.com/dtpstat/dtp-stat",
+   "path": "data/gibdd/process.py",
+   "branch": "master",
+   "commit": "129224c0fdc4600b89983f96f87fa69a8294ae9e",
+   "commit_note": "Reduce update numbers to speed up parsing",
+   "check_date_utc": "2026-08-27T00:00:00Z"
+  }
+ },
+ "sources_checked_note": "Справочник имён схем (Приложение 7 ГИБДД и др.) не сопоставлен с 60 кодами; словари имён не найдены — см. provenance.",
+ "upstream_excluded_codes": [
+  "290",
+  "390",
+  "490",
+  "590",
+  "690",
+  "790",
+  "890",
+  "990"
+ ],
+ "mapping": {
+  "070": {
+   "status": "unresolved",
+   "note": "код схемы, имя не установлено"
+  },
+  "500": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "610": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "740": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "820": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "200": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "300": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "600": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "430": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "880": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "910": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "210": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "930": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "940": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "840": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "830": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "960": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "140": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "950": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "710": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "720": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "130": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "220": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "800": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "700": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "030": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "060": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "730": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "040": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "330": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "420": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "850": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "050": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "400": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "810": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "090": {
+   "status": "unresolved",
+   "note": "код оканчивается на 90, но не в upstream-excluded — считается схемой"
+  },
+  "120": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "010": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "900": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "750": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "920": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "860": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "110": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "760": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "870": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "780": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "770": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "190": {
+   "status": "unresolved",
+   "note": "код оканчивается на 90, но не в upstream-excluded — считается схемой"
+  },
+  "410": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "100": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "020": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "230": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "630": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "980": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "440": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "340": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "620": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "310": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "970": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "320": {
+   "status": "unresolved",
+   "note": ""
+  },
+  "990": {
+   "status": "no_scheme",
+   "note": "upstream возвращает None (s_dtp в списке исключений); причина/смысл не задокументирован"
+  },
+  "890": {
+   "status": "no_scheme",
+   "note": "upstream возвращает None (s_dtp в списке исключений); причина/смысл не задокументирован"
+  },
+  "490": {
+   "status": "no_scheme",
+   "note": "upstream возвращает None (s_dtp в списке исключений); причина/смысл не задокументирован"
+  },
+  "290": {
+   "status": "no_scheme",
+   "note": "upstream возвращает None (s_dtp в списке исключений); причина/смысл не задокументирован"
+  },
+  "590": {
+   "status": "no_scheme",
+   "note": "upstream возвращает None (s_dtp в списке исключений); причина/смысл не задокументирован"
+  },
+  "690": {
+   "status": "no_scheme",
+   "note": "upstream возвращает None (s_dtp в списке исключений); причина/смысл не задокументирован"
+  },
+  "390": {
+   "status": "no_scheme",
+   "note": "upstream возвращает None (s_dtp в списке исключений); причина/смысл не задокументирован"
+  },
+  "790": {
+   "status": "no_scheme",
+   "note": "upstream возвращает None (s_dtp в списке исключений); причина/смысл не задокументирован"
+  }
+ }
+}

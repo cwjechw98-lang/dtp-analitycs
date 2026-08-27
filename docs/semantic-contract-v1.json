@@ -1,0 +1,249 @@
+{
+ "contract_version": 1,
+ "generated_at_utc": "2026-08-27T20:17:47.391832+00:00",
+ "methodology": "Все знаменатели от полной сущности (source_total), включая source_missing. Разделены source_missing/unknown/ambiguous.",
+ "schema_drift": {
+  "expected_top_level_keys": [
+   "address",
+   "category",
+   "datetime",
+   "dead_count",
+   "gibdd_number",
+   "id",
+   "injured_count",
+   "light",
+   "nearby",
+   "parent_region",
+   "participant_categories",
+   "participants",
+   "participants_count",
+   "point",
+   "region",
+   "road_conditions",
+   "scheme",
+   "severity",
+   "tags",
+   "vehicles",
+   "weather"
+  ],
+  "observed_top_level_keys": [
+   "address",
+   "category",
+   "datetime",
+   "dead_count",
+   "gibdd_number",
+   "id",
+   "injured_count",
+   "light",
+   "nearby",
+   "parent_region",
+   "participant_categories",
+   "participants",
+   "participants_count",
+   "point",
+   "region",
+   "road_conditions",
+   "scheme",
+   "severity",
+   "tags",
+   "vehicles",
+   "weather"
+  ],
+  "unknown_top_level_keys": [],
+  "expected_vehicle_keys": [
+   "brand",
+   "category",
+   "color",
+   "model",
+   "participants",
+   "year"
+  ],
+  "observed_vehicle_keys": [
+   "brand",
+   "category",
+   "color",
+   "model",
+   "participants",
+   "year"
+  ],
+  "unknown_vehicle_keys": [],
+  "expected_participant_keys": [
+   "gender",
+   "health_status",
+   "id",
+   "role",
+   "violations",
+   "years_of_driving_experience"
+  ],
+  "observed_participant_keys": [
+   "gender",
+   "health_status",
+   "id",
+   "role",
+   "violations",
+   "years_of_driving_experience"
+  ],
+  "unknown_participant_keys": [],
+  "unknown_top_level_count": 0,
+  "unknown_vehicle_count": 0,
+  "unknown_participant_count": 0
+ },
+ "vehicle_supercategory": {
+  "source_total": 2653755,
+  "source_missing": 13253,
+  "source_missing_pct": 0.499,
+  "present": 2640502,
+  "mapped": 2640400,
+  "mapped_of_present_pct": 99.996,
+  "mapped_of_all_pct": 99.497,
+  "unknown": 102,
+  "unknown_of_present_pct": 0.004,
+  "unknown_of_all_pct": 0.004,
+  "by_super": {
+   "passenger_car": 1961280,
+   "truck": 236045,
+   "motorcycle": 136168,
+   "bus": 116184,
+   "trailer": 61706,
+   "bicycle": 59046,
+   "special_vehicle": 37648,
+   "other": 22144,
+   "rail_vehicle": 6449,
+   "personal_mobility": 3730
+  },
+  "top_unmapped": [
+   [
+    "Не установлено",
+    67
+   ],
+   [
+    "Не установлено (без типа)",
+    35
+   ]
+  ]
+ },
+ "human_outcome": {
+  "source_total": 4079768,
+  "source_missing": 0,
+  "source_missing_pct": 0.0,
+  "present": 4079768,
+  "mapped": 3973544,
+  "mapped_of_present_pct": 97.396,
+  "mapped_of_all_pct": 97.396,
+  "unknown": 106224,
+  "unknown_of_present_pct": 2.604,
+  "unknown_of_all_pct": 2.604,
+  "by_group": {
+   "not_injured": 1663438,
+   "outpatient": 1238607,
+   "hospitalized": 805219,
+   "fatal_on_scene": 121972,
+   "minor_injury": 86751,
+   "fatal_afterwards": 50019,
+   "fatal_transport": 7538
+  }
+ },
+ "infrastructure": {
+  "source_total": 3899305,
+  "present": 3899305,
+  "mapped": 3899305,
+  "unknown": 0,
+  "mapped_of_present_pct": 100.0,
+  "unknown_of_present_pct": 0.0,
+  "group_breakdown": {
+   "road_context": 1065891,
+   "none": 982622,
+   "intersection": 712181,
+   "poi_other": 325273,
+   "residential": 257591,
+   "pedestrian_crossing": 246969,
+   "public_transport": 125083,
+   "roadside_service": 63890,
+   "education_children": 49163,
+   "bridge_tunnel": 36991,
+   "parking": 16013,
+   "pedestrian_area": 14003,
+   "railway": 2210,
+   "education_general": 1419,
+   "transport_hub": 6
+  },
+  "facet_breakdown": {
+   "road_context": 1065891,
+   "none": 982622,
+   "intersection": 712181,
+   "poi_other": 325273,
+   "residential": 257591,
+   "pedestrian_crossing": 246969,
+   "public_transport": 125083,
+   "roadside_service": 63890,
+   "education_children": 52151,
+   "bridge_tunnel": 36991,
+   "parking": 16013,
+   "pedestrian_area": 14003,
+   "railway": 2210,
+   "education_general": 1419,
+   "transport_hub": 6
+  }
+ },
+ "participant_type": {
+  "source_total": 4079768,
+  "source_missing": 0,
+  "source_missing_pct": 0.0,
+  "present": 4079768,
+  "mapped": 3986494,
+  "other": 4710,
+  "ambiguous": 0,
+  "sentinel": 88564,
+  "unknown": 0,
+  "by_type": {
+   "driver": 2505963,
+   "passenger": 928475,
+   "pedestrian": 493124,
+   "source_sentinel_no_participant": 88564,
+   "cyclist": 56183,
+   "other": 4710,
+   "road_worker": 1782,
+   "traffic_police": 717,
+   "public_safety_worker": 250
+  },
+  "top_ambiguous": [],
+  "mapped_pct_of_present": 97.714,
+  "other_pct_of_present": 0.115,
+  "ambiguous_pct_of_present": 0.0,
+  "sentinel_pct_of_present": 2.171,
+  "unknown_pct_of_present": 0.0
+ },
+ "region_subject": {
+  "processed": 85,
+  "conflicts": 0
+ },
+ "local_region": {
+  "present": 1616059,
+  "missing": 0,
+  "unique_composite_keys": 2414,
+  "same_name_across_subjects": 87,
+  "note": "composite key = region_subject_id + normalized local_region; collisions = одинаковые имена районов, встречающиеся в >1 субъекте"
+ },
+ "crash_scheme": {
+  "source_total": 1616059,
+  "source_missing": 0,
+  "source_missing_pct": 0.0,
+  "present": 1616059,
+  "unresolved": 1526840,
+  "no_scheme": 89219,
+  "unknown": 0
+ },
+ "brand": {
+  "source_total": 2653755,
+  "source_missing": 166632,
+  "source_missing_pct": 6.279,
+  "present": 2487123,
+  "pass_through": 2358337,
+  "aggregate": 128786,
+  "pass_through_pct_of_present": 94.822,
+  "aggregate_pct_of_present": 5.178,
+  "pass_through_pct_of_all": 88.868,
+  "aggregate_pct_of_all": 4.853,
+  "source_missing_pct_of_all": 6.279
+ }
+}

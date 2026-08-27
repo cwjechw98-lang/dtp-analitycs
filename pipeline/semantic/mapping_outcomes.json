@@ -1,0 +1,56 @@
+{
+  "comment": "Semantic Contract v1 — human_outcome (двухуровневый). RAW participants[].health_status -> detail | group. Детерминированный.",
+  "version": 1,
+  "raw_count": 42,
+  "groups": ["not_injured", "outpatient", "minor_injury", "hospitalized", "fatal_on_scene", "fatal_transport", "fatal_afterwards", "unknown"],
+  "mapping": {
+    "Не пострадал": ["not_injured", "not_injured"],
+
+    "Раненый, находящийся (находившийся) на стационарном лечении": ["hospitalized", "hospitalized"],
+    "Получил телесные повреждения с показанием к лечению в медицинских организациях (кроме разовой медицинской помощи)": ["hospitalized", "hospitalized"],
+
+    "Раненый, находящийся (находившийся)  на амбулаторном лечении, либо которому по характеру полученных травм обозначена необходимость амбулаторного лечения (вне зависимости от его фактического прохождения)": ["outpatient", "outpatient"],
+    "Раненый, находящийся (находившийся) на амбулаторном лечении, либо в условиях дневного стационара": ["outpatient", "outpatient"],
+    "Получил травмы с оказанием разовой медицинской помощи, к категории раненый не относится": ["minor_injury", "minor_injury"],
+    "Получил телесные повреждения с показанием к лечению в медицинских организациях, фактически лечение не проходил, к категории раненый не относится": ["minor_injury", "minor_injury"],
+
+    "Скончался на месте ДТП до приезда скорой медицинской помощи": ["fatal_on_scene", "fatal_on_scene"],
+    "Скончался на месте ДТП по прибытию скорой медицинской помощи, но до транспортировки в мед. организацию": ["fatal_on_scene", "fatal_on_scene"],
+    "Скончался на месте ДТП по прибытию скорой медицинской помощи, но до транспортировки в медицинское учреждение": ["fatal_on_scene", "fatal_on_scene"],
+
+    "Скончался при транспортировке": ["fatal_transport", "fatal_transport"],
+
+    "Скончался в течение 1 суток": ["fatal_afterwards_day1", "fatal_afterwards"],
+    "Скончался в течение 2 суток": ["fatal_afterwards_day2", "fatal_afterwards"],
+    "Скончался в течение 3 суток": ["fatal_afterwards_day3", "fatal_afterwards"],
+    "Скончался в течение 4 суток": ["fatal_afterwards_day4", "fatal_afterwards"],
+    "Скончался в течение 5 суток": ["fatal_afterwards_day5", "fatal_afterwards"],
+    "Скончался в течение 6 суток": ["fatal_afterwards_day6", "fatal_afterwards"],
+    "Скончался в течение 7 суток": ["fatal_afterwards_day7", "fatal_afterwards"],
+    "Скончался в течение 8 суток": ["fatal_afterwards_day8", "fatal_afterwards"],
+    "Скончался в течение 9 суток": ["fatal_afterwards_day9", "fatal_afterwards"],
+    "Скончался в течение 10 суток": ["fatal_afterwards_day10", "fatal_afterwards"],
+    "Скончался в течение 11 суток": ["fatal_afterwards_day11", "fatal_afterwards"],
+    "Скончался в течение 12 суток": ["fatal_afterwards_day12", "fatal_afterwards"],
+    "Скончался в течение 13 суток": ["fatal_afterwards_day13", "fatal_afterwards"],
+    "Скончался в течение 14 суток": ["fatal_afterwards_day14", "fatal_afterwards"],
+    "Скончался в течение 15 суток": ["fatal_afterwards_day15", "fatal_afterwards"],
+    "Скончался в течение 16 суток": ["fatal_afterwards_day16", "fatal_afterwards"],
+    "Скончался в течение 17 суток": ["fatal_afterwards_day17", "fatal_afterwards"],
+    "Скончался в течение 18 суток": ["fatal_afterwards_day18", "fatal_afterwards"],
+    "Скончался в течение 19 суток": ["fatal_afterwards_day19", "fatal_afterwards"],
+    "Скончался в течение 20 суток": ["fatal_afterwards_day20", "fatal_afterwards"],
+    "Скончался в течение 21 суток": ["fatal_afterwards_day21", "fatal_afterwards"],
+    "Скончался в течение 22 суток": ["fatal_afterwards_day22", "fatal_afterwards"],
+    "Скончался в течение 23 суток": ["fatal_afterwards_day23", "fatal_afterwards"],
+    "Скончался в течение 24 суток": ["fatal_afterwards_day24", "fatal_afterwards"],
+    "Скончался в течение 25 суток": ["fatal_afterwards_day25", "fatal_afterwards"],
+    "Скончался в течение 26 суток": ["fatal_afterwards_day26", "fatal_afterwards"],
+    "Скончался в течение 27 суток": ["fatal_afterwards_day27", "fatal_afterwards"],
+    "Скончался в течение 28 суток": ["fatal_afterwards_day28", "fatal_afterwards"],
+    "Скончался в течение 29 суток": ["fatal_afterwards_day29", "fatal_afterwards"],
+    "Скончался в течение 30 суток": ["fatal_afterwards_day30", "fatal_afterwards"],
+
+    "Не определен": ["unknown", "unknown"]
+  }
+}

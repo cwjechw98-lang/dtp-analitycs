@@ -1,0 +1,684 @@
+{
+ "comment": "Semantic Contract v1 — region_subject. Источник истины: slug файла. canonic name из доминирующего parent_region.",
+ "version": 1,
+ "regions": {
+  "altaiskii-krai": {
+   "canonical_id": "altaiskii-krai",
+   "canonical_name": "Алтайский край",
+   "parent_region_values": [
+    "Алтайский край"
+   ],
+   "conflict": false
+  },
+  "amurskaia-oblast": {
+   "canonical_id": "amurskaia-oblast",
+   "canonical_name": "Амурская область",
+   "parent_region_values": [
+    "Амурская область"
+   ],
+   "conflict": false
+  },
+  "arkhangelskaia-oblast": {
+   "canonical_id": "arkhangelskaia-oblast",
+   "canonical_name": "Архангельская область",
+   "parent_region_values": [
+    "Архангельская область"
+   ],
+   "conflict": false
+  },
+  "astrakhanskaia-oblast": {
+   "canonical_id": "astrakhanskaia-oblast",
+   "canonical_name": "Астраханская область",
+   "parent_region_values": [
+    "Астраханская область"
+   ],
+   "conflict": false
+  },
+  "belgorodskaia-oblast": {
+   "canonical_id": "belgorodskaia-oblast",
+   "canonical_name": "Белгородская область",
+   "parent_region_values": [
+    "Белгородская область"
+   ],
+   "conflict": false
+  },
+  "brianskaia-oblast": {
+   "canonical_id": "brianskaia-oblast",
+   "canonical_name": "Брянская область",
+   "parent_region_values": [
+    "Брянская область"
+   ],
+   "conflict": false
+  },
+  "chechenskaia-respublika": {
+   "canonical_id": "chechenskaia-respublika",
+   "canonical_name": "Чеченская Республика",
+   "parent_region_values": [
+    "Чеченская Республика"
+   ],
+   "conflict": false
+  },
+  "cheliabinskaia-oblast": {
+   "canonical_id": "cheliabinskaia-oblast",
+   "canonical_name": "Челябинская область",
+   "parent_region_values": [
+    "Челябинская область"
+   ],
+   "conflict": false
+  },
+  "chukotskii-avtonomnyi-okrug": {
+   "canonical_id": "chukotskii-avtonomnyi-okrug",
+   "canonical_name": "Чукотский автономный округ",
+   "parent_region_values": [
+    "Чукотский автономный округ"
+   ],
+   "conflict": false
+  },
+  "chuvashskaia-respublika-chuvashiia": {
+   "canonical_id": "chuvashskaia-respublika-chuvashiia",
+   "canonical_name": "Чувашская Республика",
+   "parent_region_values": [
+    "Чувашская Республика - Чувашия"
+   ],
+   "conflict": false
+  },
+  "evreiskaia-avtonomnaia-oblast": {
+   "canonical_id": "evreiskaia-avtonomnaia-oblast",
+   "canonical_name": "Еврейская автономная область",
+   "parent_region_values": [
+    "Еврейская автономная область"
+   ],
+   "conflict": false
+  },
+  "iamalo-nenetskii-avtonomnyi-okrug": {
+   "canonical_id": "iamalo-nenetskii-avtonomnyi-okrug",
+   "canonical_name": "Ямало-Ненецкий автономный округ",
+   "parent_region_values": [
+    "Ямало-Ненецкий автономный округ"
+   ],
+   "conflict": false
+  },
+  "iaroslavskaia-oblast": {
+   "canonical_id": "iaroslavskaia-oblast",
+   "canonical_name": "Ярославская область",
+   "parent_region_values": [
+    "Ярославская область"
+   ],
+   "conflict": false
+  },
+  "irkutskaia-oblast": {
+   "canonical_id": "irkutskaia-oblast",
+   "canonical_name": "Иркутская область",
+   "parent_region_values": [
+    "Иркутская область"
+   ],
+   "conflict": false
+  },
+  "ivanovskaia-oblast": {
+   "canonical_id": "ivanovskaia-oblast",
+   "canonical_name": "Ивановская область",
+   "parent_region_values": [
+    "Ивановская область"
+   ],
+   "conflict": false
+  },
+  "kabardino-balkarskaia-respublika": {
+   "canonical_id": "kabardino-balkarskaia-respublika",
+   "canonical_name": "Кабардино-Балкарская Республика",
+   "parent_region_values": [
+    "Кабардино-Балкарская Республика"
+   ],
+   "conflict": false
+  },
+  "kaliningradskaia-oblast": {
+   "canonical_id": "kaliningradskaia-oblast",
+   "canonical_name": "Калининградская область",
+   "parent_region_values": [
+    "Калининградская область"
+   ],
+   "conflict": false
+  },
+  "kaluzhskaia-oblast": {
+   "canonical_id": "kaluzhskaia-oblast",
+   "canonical_name": "Калужская область",
+   "parent_region_values": [
+    "Калужская область"
+   ],
+   "conflict": false
+  },
+  "kamchatskii-krai": {
+   "canonical_id": "kamchatskii-krai",
+   "canonical_name": "Камчатский край",
+   "parent_region_values": [
+    "Камчатский край"
+   ],
+   "conflict": false
+  },
+  "karachaevo-cherkesskaia-respublika": {
+   "canonical_id": "karachaevo-cherkesskaia-respublika",
+   "canonical_name": "Карачаево-Черкесская Республика",
+   "parent_region_values": [
+    "Карачаево-Черкесская Республика"
+   ],
+   "conflict": false
+  },
+  "kemerovskaia-oblast-kuzbass": {
+   "canonical_id": "kemerovskaia-oblast-kuzbass",
+   "canonical_name": "Кемеровская область - Кузбасс",
+   "parent_region_values": [
+    "Кемеровская область - Кузбасс"
+   ],
+   "conflict": false
+  },
+  "khabarovskii-krai": {
+   "canonical_id": "khabarovskii-krai",
+   "canonical_name": "Хабаровский край",
+   "parent_region_values": [
+    "Хабаровский край"
+   ],
+   "conflict": false
+  },
+  "khanty-mansiiskii-avtonomnyi-okrug-iugra": {
+   "canonical_id": "khanty-mansiiskii-avtonomnyi-okrug-iugra",
+   "canonical_name": "Ханты-Мансийский автономный округ - Югра",
+   "parent_region_values": [
+    "Ханты-Мансийский автономный округ - Югра"
+   ],
+   "conflict": false
+  },
+  "kirovskaia-oblast": {
+   "canonical_id": "kirovskaia-oblast",
+   "canonical_name": "Кировская область",
+   "parent_region_values": [
+    "Кировская область"
+   ],
+   "conflict": false
+  },
+  "kostromskaia-oblast": {
+   "canonical_id": "kostromskaia-oblast",
+   "canonical_name": "Костромская область",
+   "parent_region_values": [
+    "Костромская область"
+   ],
+   "conflict": false
+  },
+  "krasnodarskii-krai": {
+   "canonical_id": "krasnodarskii-krai",
+   "canonical_name": "Краснодарский край",
+   "parent_region_values": [
+    "Краснодарский край"
+   ],
+   "conflict": false
+  },
+  "krasnoiarskii-krai": {
+   "canonical_id": "krasnoiarskii-krai",
+   "canonical_name": "Красноярский край",
+   "parent_region_values": [
+    "Красноярский край"
+   ],
+   "conflict": false
+  },
+  "kurganskaia-oblast": {
+   "canonical_id": "kurganskaia-oblast",
+   "canonical_name": "Курганская область",
+   "parent_region_values": [
+    "Курганская область"
+   ],
+   "conflict": false
+  },
+  "kurskaia-oblast": {
+   "canonical_id": "kurskaia-oblast",
+   "canonical_name": "Курская область",
+   "parent_region_values": [
+    "Курская область"
+   ],
+   "conflict": false
+  },
+  "leningradskaia-oblast": {
+   "canonical_id": "leningradskaia-oblast",
+   "canonical_name": "Ленинградская область",
+   "parent_region_values": [
+    "Ленинградская область"
+   ],
+   "conflict": false
+  },
+  "lipetskaia-oblast": {
+   "canonical_id": "lipetskaia-oblast",
+   "canonical_name": "Липецкая область",
+   "parent_region_values": [
+    "Липецкая область"
+   ],
+   "conflict": false
+  },
+  "magadanskaia-oblast": {
+   "canonical_id": "magadanskaia-oblast",
+   "canonical_name": "Магаданская область",
+   "parent_region_values": [
+    "Магаданская область"
+   ],
+   "conflict": false
+  },
+  "moskovskaia-oblast": {
+   "canonical_id": "moskovskaia-oblast",
+   "canonical_name": "Московская область",
+   "parent_region_values": [
+    "Московская область"
+   ],
+   "conflict": false
+  },
+  "moskva": {
+   "canonical_id": "moskva",
+   "canonical_name": "Москва",
+   "parent_region_values": [
+    "Москва"
+   ],
+   "conflict": false
+  },
+  "murmanskaia-oblast": {
+   "canonical_id": "murmanskaia-oblast",
+   "canonical_name": "Мурманская область",
+   "parent_region_values": [
+    "Мурманская область"
+   ],
+   "conflict": false
+  },
+  "nenetskii-avtonomnyi-okrug": {
+   "canonical_id": "nenetskii-avtonomnyi-okrug",
+   "canonical_name": "Ненецкий автономный округ",
+   "parent_region_values": [],
+   "conflict": false
+  },
+  "nizhegorodskaia-oblast": {
+   "canonical_id": "nizhegorodskaia-oblast",
+   "canonical_name": "Нижегородская область",
+   "parent_region_values": [
+    "Нижегородская область"
+   ],
+   "conflict": false
+  },
+  "novgorodskaia-oblast": {
+   "canonical_id": "novgorodskaia-oblast",
+   "canonical_name": "Новгородская область",
+   "parent_region_values": [
+    "Новгородская область"
+   ],
+   "conflict": false
+  },
+  "novosibirskaia-oblast": {
+   "canonical_id": "novosibirskaia-oblast",
+   "canonical_name": "Новосибирская область",
+   "parent_region_values": [
+    "Новосибирская область"
+   ],
+   "conflict": false
+  },
+  "omskaia-oblast": {
+   "canonical_id": "omskaia-oblast",
+   "canonical_name": "Омская область",
+   "parent_region_values": [
+    "Омская область"
+   ],
+   "conflict": false
+  },
+  "orenburgskaia-oblast": {
+   "canonical_id": "orenburgskaia-oblast",
+   "canonical_name": "Оренбургская область",
+   "parent_region_values": [
+    "Оренбургская область"
+   ],
+   "conflict": false
+  },
+  "orlovskaia-oblast": {
+   "canonical_id": "orlovskaia-oblast",
+   "canonical_name": "Орловская область",
+   "parent_region_values": [
+    "Орловская область"
+   ],
+   "conflict": false
+  },
+  "penzenskaia-oblast": {
+   "canonical_id": "penzenskaia-oblast",
+   "canonical_name": "Пензенская область",
+   "parent_region_values": [
+    "Пензенская область"
+   ],
+   "conflict": false
+  },
+  "permskii-krai": {
+   "canonical_id": "permskii-krai",
+   "canonical_name": "Пермский край",
+   "parent_region_values": [
+    "Пермский край"
+   ],
+   "conflict": false
+  },
+  "primorskii-krai": {
+   "canonical_id": "primorskii-krai",
+   "canonical_name": "Приморский край",
+   "parent_region_values": [
+    "Приморский край"
+   ],
+   "conflict": false
+  },
+  "pskovskaia-oblast": {
+   "canonical_id": "pskovskaia-oblast",
+   "canonical_name": "Псковская область",
+   "parent_region_values": [
+    "Псковская область"
+   ],
+   "conflict": false
+  },
+  "respublika-adygeia-adygeia": {
+   "canonical_id": "respublika-adygeia-adygeia",
+   "canonical_name": "Республика Адыгея",
+   "parent_region_values": [
+    "Республика Адыгея (Адыгея)"
+   ],
+   "conflict": false
+  },
+  "respublika-altai": {
+   "canonical_id": "respublika-altai",
+   "canonical_name": "Республика Алтай",
+   "parent_region_values": [
+    "Республика Алтай"
+   ],
+   "conflict": false
+  },
+  "respublika-bashkortostan": {
+   "canonical_id": "respublika-bashkortostan",
+   "canonical_name": "Республика Башкортостан",
+   "parent_region_values": [
+    "Республика Башкортостан"
+   ],
+   "conflict": false
+  },
+  "respublika-buriatiia": {
+   "canonical_id": "respublika-buriatiia",
+   "canonical_name": "Республика Бурятия",
+   "parent_region_values": [
+    "Республика Бурятия"
+   ],
+   "conflict": false
+  },
+  "respublika-dagestan": {
+   "canonical_id": "respublika-dagestan",
+   "canonical_name": "Республика Дагестан",
+   "parent_region_values": [
+    "Республика Дагестан"
+   ],
+   "conflict": false
+  },
+  "respublika-ingushetiia": {
+   "canonical_id": "respublika-ingushetiia",
+   "canonical_name": "Республика Ингушетия",
+   "parent_region_values": [
+    "Республика Ингушетия"
+   ],
+   "conflict": false
+  },
+  "respublika-kalmykiia": {
+   "canonical_id": "respublika-kalmykiia",
+   "canonical_name": "Республика Калмыкия",
+   "parent_region_values": [
+    "Республика Калмыкия"
+   ],
+   "conflict": false
+  },
+  "respublika-kareliia": {
+   "canonical_id": "respublika-kareliia",
+   "canonical_name": "Республика Карелия",
+   "parent_region_values": [
+    "Республика Карелия"
+   ],
+   "conflict": false
+  },
+  "respublika-khakasiia": {
+   "canonical_id": "respublika-khakasiia",
+   "canonical_name": "Республика Хакасия",
+   "parent_region_values": [
+    "Республика Хакасия"
+   ],
+   "conflict": false
+  },
+  "respublika-komi": {
+   "canonical_id": "respublika-komi",
+   "canonical_name": "Республика Коми",
+   "parent_region_values": [
+    "Республика Коми"
+   ],
+   "conflict": false
+  },
+  "respublika-krym": {
+   "canonical_id": "respublika-krym",
+   "canonical_name": "Республика Крым",
+   "parent_region_values": [
+    "Республика Крым"
+   ],
+   "conflict": false
+  },
+  "respublika-marii-el": {
+   "canonical_id": "respublika-marii-el",
+   "canonical_name": "Республика Марий Эл",
+   "parent_region_values": [
+    "Республика Марий Эл"
+   ],
+   "conflict": false
+  },
+  "respublika-mordoviia": {
+   "canonical_id": "respublika-mordoviia",
+   "canonical_name": "Республика Мордовия",
+   "parent_region_values": [
+    "Республика Мордовия"
+   ],
+   "conflict": false
+  },
+  "respublika-sakha-iakutiia": {
+   "canonical_id": "respublika-sakha-iakutiia",
+   "canonical_name": "Республика Саха (Якутия)",
+   "parent_region_values": [
+    "Республика Саха (Якутия)"
+   ],
+   "conflict": false
+  },
+  "respublika-severnaia-osetiia-alaniia": {
+   "canonical_id": "respublika-severnaia-osetiia-alaniia",
+   "canonical_name": "Республика Северная Осетия-Алания",
+   "parent_region_values": [
+    "Республика Северная Осетия-Алания"
+   ],
+   "conflict": false
+  },
+  "respublika-tatarstan-tatarstan": {
+   "canonical_id": "respublika-tatarstan-tatarstan",
+   "canonical_name": "Республика Татарстан",
+   "parent_region_values": [
+    "Республика Татарстан (Татарстан)"
+   ],
+   "conflict": false
+  },
+  "respublika-tyva": {
+   "canonical_id": "respublika-tyva",
+   "canonical_name": "Республика Тыва",
+   "parent_region_values": [
+    "Республика Тыва"
+   ],
+   "conflict": false
+  },
+  "riazanskaia-oblast": {
+   "canonical_id": "riazanskaia-oblast",
+   "canonical_name": "Рязанская область",
+   "parent_region_values": [
+    "Рязанская область"
+   ],
+   "conflict": false
+  },
+  "rostovskaia-oblast": {
+   "canonical_id": "rostovskaia-oblast",
+   "canonical_name": "Ростовская область",
+   "parent_region_values": [
+    "Ростовская область"
+   ],
+   "conflict": false
+  },
+  "sakhalinskaia-oblast": {
+   "canonical_id": "sakhalinskaia-oblast",
+   "canonical_name": "Сахалинская область",
+   "parent_region_values": [
+    "Сахалинская область"
+   ],
+   "conflict": false
+  },
+  "samarskaia-oblast": {
+   "canonical_id": "samarskaia-oblast",
+   "canonical_name": "Самарская область",
+   "parent_region_values": [
+    "Самарская область"
+   ],
+   "conflict": false
+  },
+  "sankt-peterburg": {
+   "canonical_id": "sankt-peterburg",
+   "canonical_name": "Санкт-Петербург",
+   "parent_region_values": [
+    "Санкт-Петербург"
+   ],
+   "conflict": false
+  },
+  "saratovskaia-oblast": {
+   "canonical_id": "saratovskaia-oblast",
+   "canonical_name": "Саратовская область",
+   "parent_region_values": [
+    "Саратовская область"
+   ],
+   "conflict": false
+  },
+  "sevastopol": {
+   "canonical_id": "sevastopol",
+   "canonical_name": "Севастополь",
+   "parent_region_values": [
+    "Севастополь"
+   ],
+   "conflict": false
+  },
+  "smolenskaia-oblast": {
+   "canonical_id": "smolenskaia-oblast",
+   "canonical_name": "Смоленская область",
+   "parent_region_values": [
+    "Смоленская область"
+   ],
+   "conflict": false
+  },
+  "stavropolskii-krai": {
+   "canonical_id": "stavropolskii-krai",
+   "canonical_name": "Ставропольский край",
+   "parent_region_values": [
+    "Ставропольский край"
+   ],
+   "conflict": false
+  },
+  "sverdlovskaia-oblast": {
+   "canonical_id": "sverdlovskaia-oblast",
+   "canonical_name": "Свердловская область",
+   "parent_region_values": [
+    "Свердловская область"
+   ],
+   "conflict": false
+  },
+  "tambovskaia-oblast": {
+   "canonical_id": "tambovskaia-oblast",
+   "canonical_name": "Тамбовская область",
+   "parent_region_values": [
+    "Тамбовская область"
+   ],
+   "conflict": false
+  },
+  "tiumenskaia-oblast": {
+   "canonical_id": "tiumenskaia-oblast",
+   "canonical_name": "Тюменская область",
+   "parent_region_values": [
+    "Тюменская область"
+   ],
+   "conflict": false
+  },
+  "tomskaia-oblast": {
+   "canonical_id": "tomskaia-oblast",
+   "canonical_name": "Томская область",
+   "parent_region_values": [
+    "Томская область"
+   ],
+   "conflict": false
+  },
+  "tulskaia-oblast": {
+   "canonical_id": "tulskaia-oblast",
+   "canonical_name": "Тульская область",
+   "parent_region_values": [
+    "Тульская область"
+   ],
+   "conflict": false
+  },
+  "tverskaia-oblast": {
+   "canonical_id": "tverskaia-oblast",
+   "canonical_name": "Тверская область",
+   "parent_region_values": [
+    "Тверская область"
+   ],
+   "conflict": false
+  },
+  "udmurtskaia-respublika": {
+   "canonical_id": "udmurtskaia-respublika",
+   "canonical_name": "Удмуртская Республика",
+   "parent_region_values": [
+    "Удмуртская Республика"
+   ],
+   "conflict": false
+  },
+  "ulianovskaia-oblast": {
+   "canonical_id": "ulianovskaia-oblast",
+   "canonical_name": "Ульяновская область",
+   "parent_region_values": [
+    "Ульяновская область"
+   ],
+   "conflict": false
+  },
+  "vladimirskaia-oblast": {
+   "canonical_id": "vladimirskaia-oblast",
+   "canonical_name": "Владимирская область",
+   "parent_region_values": [
+    "Владимирская область"
+   ],
+   "conflict": false
+  },
+  "volgogradskaia-oblast": {
+   "canonical_id": "volgogradskaia-oblast",
+   "canonical_name": "Волгоградская область",
+   "parent_region_values": [
+    "Волгоградская область"
+   ],
+   "conflict": false
+  },
+  "vologodskaia-oblast": {
+   "canonical_id": "vologodskaia-oblast",
+   "canonical_name": "Вологодская область",
+   "parent_region_values": [
+    "Вологодская область"
+   ],
+   "conflict": false
+  },
+  "voronezhskaia-oblast": {
+   "canonical_id": "voronezhskaia-oblast",
+   "canonical_name": "Воронежская область",
+   "parent_region_values": [
+    "Воронежская область"
+   ],
+   "conflict": false
+  },
+  "zabaikalskii-krai": {
+   "canonical_id": "zabaikalskii-krai",
+   "canonical_name": "Забайкальский край",
+   "parent_region_values": [
+    "Забайкальский край"
+   ],
+   "conflict": false
+  }
+ }
+}

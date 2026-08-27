@@ -9,6 +9,7 @@ import { parseBuffer, parseExp, parsePoint, serializePoint } from "../lib/urlSta
 import { usePlaceSuggest, shortPlace } from "../hooks/usePlaceSuggest";
 import type { GeoResult, GeoResult as GeoRes } from "../lib/osrm";
 import { useApp } from "../state/AppState";
+import { useProfile } from "../state/ProfileContext";
 import { useTheme } from "../state/ThemeContext";
 import type { PointRow } from "../lib/types";
 import { SEV_COLORS } from "../lib/data";
@@ -156,7 +157,20 @@ export default function RouteTab() {
   const sugA = usePlaceSuggest(queryA);
   const sugB = usePlaceSuggest(queryB);
 
-  const [expBucket, setExpBucket] = useState(3);
+  /**
+   * Стаж для фильтрации правил. null = «не выбран», тогда берётся из профиля.
+   *
+   * Раньше здесь стояла жёсткая тройка («11–15 лет»), и она:
+   *   1) молча применяла фильтр по стажу, который человек не выбирал;
+   *   2) всегда побеждала профиль, потому что уходила в RouteTips как
+   *      expOverride, а там expOverride ?? profile.exp — то есть поле
+   *      профиля на маршруте было мёртвым;
+   *   3) писалась в адрес, из-за чего голый / превращался в /route?exp=3.
+   */
+  const [expBucket, setExpBucket] = useState<number | null>(null);
+  const { profile } = useProfile();
+  /** Явный выбор на этом экране важнее профиля, профиль важнее пустоты. */
+  const effectiveExp = expBucket ?? profile.exp;
   const [bufferM, setBufferM] = useState(400);
   /** Инструмент выделения: круг или полигон («свободная линия»). */
   const [selTool, setSelTool] = useState<"none" | "circle" | "polygon">("none");
@@ -185,6 +199,7 @@ export default function RouteTab() {
       a: a ? serializePoint(a) : null,
       b: b ? serializePoint(b) : null,
       buf: bufferM === 400 ? null : bufferM,
+      // Дефолт в адрес не пишем — как и buf=400 выше.
       exp: expBucket,
     });
   }, [a, b, bufferM, expBucket, writeUrl]);
@@ -530,7 +545,12 @@ export default function RouteTab() {
     const rules = [...app.tips.rules];
     const scored = rules
       .filter((t) => {
-        if (t.scope === "experience") return t.when.experience_bucket === app.experience.buckets[expBucket];
+        if (t.scope === "experience") {
+          // Стаж не выбран ни здесь, ни в профиле — правила по опыту
+          // не показываем вовсе, вместо того чтобы подставлять чужой.
+          if (effectiveExp == null) return false;
+          return t.when.experience_bucket === app.experience.buckets[effectiveExp];
+        }
         if (t.scope === "weather")
           return corridor.topWeathersIdx.some(([wi]) => app.dicts.weathers[wi] === t.when.weather);
         return t.scope !== "light" && t.scope !== "road";
@@ -538,7 +558,7 @@ export default function RouteTab() {
       .sort((x, y) => y.lift - x.lift)
       .slice(0, 6);
     return scored;
-  }, [corridor, app.tips.rules, expBucket, app.experience.buckets, app.dicts.weathers]);
+  }, [corridor, app.tips.rules, effectiveExp, app.experience.buckets, app.dicts.weathers]);
 
   const hourChartOption: echarts.EChartsOption | null = useMemo(() => {
     if (!corridor) return null;
@@ -900,7 +920,8 @@ export default function RouteTab() {
           <Section title="Правила для этого маршрута" lead="Рассчитаны по всей стране, отобраны по погоде и составу потока на маршруте.">
             <div className="mb-3 flex items-center gap-3 text-sm">
               <span className="text-slate-400">Твой стаж:</span>
-              <select value={expBucket} onChange={(e) => setExpBucket(Number(e.target.value))} className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs">
+              <select value={expBucket ?? ""} onChange={(e) => setExpBucket(e.target.value === "" ? null : Number(e.target.value))} className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs">
+                <option value="">{profile.exp != null ? `из профиля: ${app.experience.buckets[profile.exp]} лет` : "не указан"}</option>
                 {app.experience.buckets.map((bk, i) => (<option key={bk} value={i}>{bk} лет</option>))}
               </select>
             </div>

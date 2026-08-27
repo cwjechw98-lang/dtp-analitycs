@@ -13,6 +13,7 @@ import { BottomNav, DesktopNav } from "./components/Nav";
 
 // Разделы грузятся лениво: ECharts и Leaflet весят больше мегабайта,
 // и лендингу на "/" (этап 4) они не нужны вовсе.
+const LauncherPage = lazy(() => import("./pages/LauncherPage"));
 const RoutePage = lazy(() => import("./pages/RoutePage"));
 const AtlasPage = lazy(() => import("./pages/AtlasPage"));
 const FleetPage = lazy(() => import("./pages/FleetPage"));
@@ -88,8 +89,11 @@ function Shell() {
               <Route path="/atlas" element={<AtlasPage />} />
               <Route path="/fleet" element={<FleetPage />} />
               <Route path="/me" element={<MePage />} />
-              {/* Лендинг придёт на "/" на этапе 4; до тех пор — вход в маршрут. */}
-              <Route path="*" element={<Navigate to="/route" replace />} />
+              {/* Launcher: настоящая публичная входная точка. Раньше здесь
+                  стоял редирект на /route, и человек из Threads попадал
+                  прямо в пустую форму «введите А и Б». */}
+              <Route path="/" element={<LauncherPage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             </Suspense>
           </motion.div>

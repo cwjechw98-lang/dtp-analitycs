@@ -1,8 +1,8 @@
 name: Weekly data update → Cloudflare Pages
 
 # Схема из DTP_Analytics_new_data_update_deploy.md (Вариант B, GitHub Release Asset).
-# Weekly: скачать данные → build_all → упаковать web/public/data → обновить
-# asset data-latest в служебном release → собрать сайт → Pages deploy.
+# Weekly: download → build_all → tests → build → ОПУБЛИКОВАТЬ asset data-latest →
+# Pages deploy (отдельный job с общим mutex "cf-pages-deploy").
 # Данные НЕ коммитятся в main. Временная машина уничтожается.
 
 on:
@@ -11,14 +11,14 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: data-deploy
+  group: data-build
   cancel-in-progress: false
 
 permissions:
   contents: write # для обновления release asset
 
 jobs:
-  update:
+  data:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,21 +40,6 @@ jobs:
       - name: Build datasets
         working-directory: pipeline
         run: python build_all.py
-
-      - name: Package data snapshot
-        run: |
-          cd web/public/data
-          tar -czf "$RUNNER_TEMP/data-latest.tar.gz" .
-
-      - name: Upload data snapshot to GitHub Release asset
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: data-latest
-          name: "Data snapshot (latest)"
-          body: "Служебный release: готовый набор данных из web/public/data для деплоя без пересборки."
-          files: "${{ runner.temp }}/data-latest.tar.gz"
-          allow_updates: true
-          overwrite: true
 
       - uses: actions/setup-node@v4
         with:
@@ -81,6 +66,41 @@ jobs:
         env:
           CF_PAGES: "1"
         run: npm run build
+
+      # Asset публикуется ТОЛЬКО после успешного typecheck/tests/build:
+      # сначала валидируем snapshot, потом перезаписываем data-latest.
+      - name: Package data snapshot
+        run: |
+          cd web/public/data
+          tar -czf "$RUNNER_TEMP/data-latest.tar.gz" .
+
+      - name: Upload data snapshot to GitHub Release asset (после валидации)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: data-latest
+          name: "Data snapshot (latest)"
+          body: "Служебный release: готовый набор данных из web/public/data для деплоя без пересборки. Обновляется после успешной валидации."
+          files: "${{ runner.temp }}/data-latest.tar.gz"
+          allow_updates: true
+          overwrite: true
+
+      - name: Upload production build
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: web/dist
+
+  deploy:
+    needs: data
+    runs-on: ubuntu-latest
+    concurrency:
+      group: cf-pages-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: web/dist
 
       - name: Install wrangler (закреплённая версия)
         run: npm i -g wrangler@4.100.0 --no-audit --no-fund

@@ -1,9 +1,9 @@
 name: Deploy to Cloudflare Pages
 
 # Вариант B (DTP_Analytics_new_data_update_deploy.md), GitHub Release Asset.
-# Код-деплой при push в main: скачать готовый ассет data-latest (без полного
-# data pipeline), собрать сайт и задеплоить в Cloudflare Pages.
-# Если ассета ещё нет — шаг смотрится и workflow падает с понятной ошибкой.
+# Код-деплой при push в main. Build идущий до deploy может отменяться
+# (быстрые пуши), а финальный deploy разделён на отдельный job с общим
+# mutex "cf-pages-deploy" — чтобы не деплоить одновременно с weekly.
 
 on:
   push:
@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: code-deploy
+  group: code-build
   cancel-in-progress: true
 
 permissions:
@@ -63,6 +63,24 @@ jobs:
         env:
           CF_PAGES: "1"
         run: npm run build
+
+      - name: Upload production build
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    concurrency:
+      group: cf-pages-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: web/dist
 
       - name: Install wrangler (закреплённая версия)
         run: npm i -g wrangler@4.100.0 --no-audit --no-fund

@@ -137,3 +137,103 @@ body {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent),
     0 8px 40px -12px color-mix(in srgb, var(--accent) 45%, transparent);
 }
+
+/* ============================================================
+   Визуальный язык v3 — три уровня веса.
+
+   Диагноз, из которого это выросло: в прежнем интерфейсе всё было
+   нарисовано с одинаковым весом — кнопка неотличима от карточки,
+   карточка от фона. Отсюда ощущение «инженерной панели», где нечего
+   нажать, и жалоба «кнопку „поделиться“ не видно».
+
+   Теперь каждый элемент обязан принадлежать ровно одному уровню:
+
+     действие  — нажми на меня
+     вердикт   — прочитай меня
+     опора     — вот доказательство
+
+   Сигнальные цвета (красный/оранжевый) — только там, где несут
+   значение данных или действия. Декоративно — никогда.
+   ============================================================ */
+
+:root {
+  /* Типографическая шкала: четыре ступени вместо прежней россыпи
+     text-xs / text-[10px] / text-[11px] по всему коду.
+     clamp — потому что проектируем от 390px, а не от десктопа. */
+  --t-verdict: clamp(1.25rem, 5.2vw, 1.75rem);
+  --t-lead: clamp(0.9375rem, 3.6vw, 1.0625rem);
+  --t-body: 0.8125rem;
+  --t-meta: 0.6875rem;
+}
+
+/* ---- уровень: действие ---- */
+.lvl-action {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  /* 44px — минимальная цель для пальца; на телефоне это не роскошь */
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0 1rem;
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+.lvl-action:active { transform: scale(0.97); }
+.lvl-action:hover { filter: brightness(1.08); }
+
+.lvl-action-quiet {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  font-weight: 600;
+  border-radius: 0.75rem;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0 1rem;
+}
+
+/* ---- уровень: вердикт ---- */
+.lvl-verdict {
+  font-size: var(--t-verdict);
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--heading);
+  text-wrap: balance;
+}
+.lvl-finding {
+  font-size: var(--t-lead);
+  line-height: 1.45;
+  color: var(--text);
+}
+
+/* ---- уровень: опора ---- */
+.lvl-support { font-size: var(--t-body); color: var(--muted); line-height: 1.5; }
+.lvl-meta { font-size: var(--t-meta); color: var(--muted); letter-spacing: 0.02em; }
+
+/* ---- карточка-медиаобъект ----
+   Её скринят и пересылают, поэтому она обязана читаться без сайта:
+   внутри неё самой название проекта, период, n и источник. */
+.share-card {
+  background: linear-gradient(160deg, var(--panel-a), var(--panel-b));
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  border-radius: 1.25rem;
+  padding: 1.25rem;
+  position: relative;
+  overflow: hidden;
+}
+.share-card::before {
+  /* Тонкая акцентная полоса сверху: единственное украшение, и оно же
+     помогает узнать карточку на скриншоте среди чужих. */
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), transparent 70%);
+}

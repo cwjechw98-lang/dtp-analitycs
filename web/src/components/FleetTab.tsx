@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import ShareButton from "./ShareButton";
 import { useUrlOnce, useUrlWriter } from "../hooks/useUrlSync";
+import BrandPicker from "./BrandPicker";
+import BrandVerdictCard from "./BrandVerdictCard";
 import { motion } from "framer-motion";
 import { useApp } from "../state/AppState";
 import { useTheme } from "../state/ThemeContext";
@@ -38,6 +39,7 @@ export default function FleetTab() {
   const [brandsFile, setBrandsFile] = useState<BrandsFile | null>(null);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
+  const compareRef = useRef<HTMLDivElement>(null);
 
   // ---- пермалинк дуэли (контракт §2/§4) ----
   const writeUrl = useUrlWriter();
@@ -115,53 +117,31 @@ export default function FleetTab() {
   return (
     <div className="space-y-4">
       <Card
-        title="🔍 Эксплорер автопрома"
-        subtitle="Живой инструмент: ищи любую марку, проваливайся в детали, сравнивай до трёх брендов друг с другом"
+        title="Сравнение марок"
+        subtitle="Что отличает одну марку от другой в 1,6 млн записей ГИБДД"
       >
-        <div className="space-y-3">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Введите марку: BMW, БМВ, Toyota, ВАЗ, Audi…"
-            className="w-full rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-orange-500/60 focus:ring-2 focus:ring-orange-500/20"
-          />
-          {selected.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-slate-500">Сравнение:</span>
-              {selected.map((name) => (
-                <button
-                  key={name}
-                  onClick={() => toggleBrand(name)}
-                  className="group flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1"
-                  style={{
-                    backgroundColor: "color-mix(in srgb, var(--accent) 16%, transparent)",
-                    color: "var(--accent)",
-                    // @ts-expect-error css var
-                    "--tw-ring-color": "color-mix(in srgb, var(--accent) 45%, transparent)",
-                  }}
-                >
-                  {name}
-                  <span className="opacity-50 group-hover:opacity-100">✕</span>
-                </button>
-              ))}
-              <button onClick={() => setSelected([])} className="text-xs text-slate-500 underline decoration-dotted hover:text-slate-300">
-                очистить
-              </button>
-              <ShareButton
-                path="/fleet"
-                params={{ brand: selected[0], vs: selected.slice(1).join(",") || null }}
-                title={
-                  selected.length > 1
-                    ? `${selected.join(" × ")} — кто чаще виноват`
-                    : `${selected[0]} — статистика ДТП`
-                }
-                label={selected.length > 1 ? "Поделиться дуэлью" : "Поделиться"}
-                className="ml-auto"
-              />
-            </div>
-          )}
-        </div>
+        <BrandPicker
+          brandsFile={brandsFile}
+          selected={selected}
+          onChange={setSelected}
+          onGoToCompare={() =>
+            compareRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+          }
+        />
       </Card>
+
+      {/* Вердикт идёт первым и до графиков: человек пришёл за ответом,
+          график — доказательство, а не сам ответ. */}
+      {selected.length >= 2 && (
+        <div ref={compareRef} className="scroll-mt-28">
+          <BrandVerdictCard
+            nameA={selected[0]}
+            a={brandsFile.brands[selected[0]]}
+            nameB={selected[1]}
+            b={brandsFile.brands[selected[1]]}
+          />
+        </div>
+      )}
 
       {/* ---- результаты поиска / выбранные марки ---- */}
       <SearchResults
@@ -579,7 +559,10 @@ function CompareChart({
   const sevRows = selected.map((n) => ({ n, d: brandsFile.brands[n] }));
 
   return (
-    <Card title="⚔️ Сравнение марок" subtitle="Индекс агрессии = доля виновника марки относительно доли виновника в среднем по автопарку">
+    <Card
+      title="Доказательства"
+      subtitle="Индекс агрессии = доля виновника марки относительно средней по автопарку"
+    >
       <EChart option={option} height={320} />
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         {sevRows.map(({ n, d }, i) =>

@@ -3,6 +3,7 @@ import Combobox, { type ComboOption } from "./Combobox";
 import RouteTips from "./RouteTips";
 import ShareButton from "./ShareButton";
 import CoffeeBlock from "./CoffeeBlock";
+import RouteVerdictCard from "./RouteVerdictCard";
 import { useUrlOnce, useUrlWriter } from "../hooks/useUrlSync";
 import { parseBuffer, parseExp, parsePoint, serializePoint } from "../lib/urlState";
 import { usePlaceSuggest, shortPlace } from "../hooks/usePlaceSuggest";
@@ -12,7 +13,7 @@ import { useTheme } from "../state/ThemeContext";
 import type { PointRow } from "../lib/types";
 import { SEV_COLORS } from "../lib/data";
 import EChart from "./EChart";
-import { Badge, Card } from "./ui";
+import { Badge, Card, Section } from "./ui";
 import { filterCorridor, haversine, pointInCircle, pointInPolygon } from "../lib/corridor";
 // Leaflet импортируется СТАТИЧЕСКИ (как в MapTab): динамический import
 // создаёт отдельный чанк с собственной копией Leaflet, в которую плагин
@@ -818,51 +819,39 @@ export default function RouteTab() {
         </Card>
       )}
 
-      {route && (
-        <Card title="Статистика коридора">
-          <p className="text-sm text-slate-400">
-            {loading
-              ? "Фильтруем ДТП в коридоре и загружаем регионы вдоль маршрута…"
-              : rows
-                ? `В коридоре ±${bufferM} м найдено ${rows.length.toLocaleString("ru-RU")} ДТП. Ниже — подробности.`
-                : "Ожидание…"}
-          </p>
-        </Card>
+      {route && loading && (
+        <p className="lvl-support">
+          Фильтруем ДТП в коридоре и загружаем регионы вдоль маршрута…
+        </p>
       )}
 
       {route && corridor && !loading && (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            <Card className="col-span-2 !py-3">
-              <div className="text-xs uppercase tracking-wider text-slate-400">Маршрут</div>
-              <div className="mt-0.5 truncate font-semibold text-white">{a?.label ?? "A"} → {b?.label ?? "Б"}</div>
-              <div className="mt-0.5 text-xs text-slate-400">{route.distanceKm.toFixed(1)} км · ~{Math.round(route.durationMin)} мин · коридор ±{bufferM} м</div>
-              {/* n дописывается в ссылку: воркер не умеет считать коридор сам */}
-              <ShareButton
-                path="/route"
-                params={{
-                  a: a ? serializePoint(a) : null,
-                  b: b ? serializePoint(b) : null,
-                  buf: bufferM === 400 ? null : bufferM,
-                  n: corridor.total,
-                }}
-                title={`${a?.label ?? "A"} → ${b?.label ?? "Б"}: ${corridor.total} ДТП в коридоре`}
-                className="mt-2"
-              />
-            </Card>
-            <Card className="!py-3">
-              <div className="text-xs uppercase tracking-wider text-slate-400">ДТП в коридоре</div>
-              <div className="mt-0.5 text-2xl font-bold text-orange-300">{corridor.total.toLocaleString("ru-RU")}</div>
-            </Card>
-            <Card className="!py-3">
-              <div className="text-xs uppercase tracking-wider text-slate-400">Погибли / ранены</div>
-              <div className="mt-0.5 text-xl font-bold"><span className="text-red-400">{corridor.dead}</span> / <span className="text-amber-300">{corridor.injured}</span></div>
-            </Card>
-            <Card className="!py-3">
-              <div className="text-xs uppercase tracking-wider text-slate-400">Доля тяжёлых</div>
-              <div className="mt-0.5 text-2xl font-bold text-white">{(corridor.severeShare * 100).toFixed(0)}%</div>
-            </Card>
-          </div>
+          {/* Пять KPI-плиток заменены карточкой вердикта: одинаковые
+              прямоугольники с числами не отвечали на вопрос «опаснее ли
+              эта дорога», человек должен был вывести это сам. */}
+          <RouteVerdictCard
+            from={a?.label ?? "A"}
+            to={b?.label ?? "Б"}
+            distanceKm={route.distanceKm}
+            bufferM={bufferM}
+            corridor={{
+              total: corridor.total,
+              severeShare: corridor.severeShare,
+              dead: corridor.dead,
+              topCats: corridor.topCats,
+              topWeathers: corridor.topWeathersIdx.map(
+                ([wi, c]) => [app.dicts.weathers[wi] ?? "—", c] as [string, number],
+              ),
+              worstHours: corridor.worstHours,
+            }}
+            shareParams={{
+              a: a ? serializePoint(a) : null,
+              b: b ? serializePoint(b) : null,
+              buf: bufferM === 400 ? null : bufferM,
+              n: corridor.total,
+            }}
+          />
 
           {/* Правила риска сразу после сводки: это момент, когда человек
               получил результат и готов его читать. */}
@@ -876,7 +865,7 @@ export default function RouteTab() {
           <CoffeeBlock accidentsScanned={corridor.total} />
 
           <div className="grid gap-4 lg:grid-cols-3">
-            <Card title="Когда выезжать?" subtitle="Зелёный — спокойные часы, красный — опасные">
+            <Section title="Когда выезжать" lead="Зелёным — часы, в которые на этом маршруте происшествий меньше среднего.">
               <EChart option={hourChartOption!} height={260} />
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {corridor.bestHours.map((x) => (
@@ -886,29 +875,29 @@ export default function RouteTab() {
                   <Badge key={"w" + x.h} tone="red">⚠️ {String(x.h).padStart(2, "0")}:00 ×{x.lift.toFixed(2)}</Badge>
                 ))}
               </div>
-            </Card>
-            <Card title="Месяцы" subtitle="Аварийность по месяцам вдоль маршрута">
+            </Section>
+            <Section title="Месяцы" lead="Распределение происшествий вдоль маршрута по месяцам года.">
               <EChart option={monthChartOption!} height={260} />
-            </Card>
-            <Card title="Сезоны">
+            </Section>
+            <Section title="Сезоны">
               <EChart option={seasonPieOption!} height={260} />
-            </Card>
+            </Section>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <Card title="Типы ДТП на маршруте">
+            <Section title="Типы происшествий">
               <EChart option={catChartOption!} height={280} />
-            </Card>
-            <Card title="Автомобили участников" subtitle="Марки первого ТС в ДТП вдоль маршрута">
+            </Section>
+            <Section title="Автомобили участников" lead="Марки первого транспортного средства в ДТП вдоль маршрута.">
               {corridor.topBrands.length > 0 ? (
                 <EChart option={brandChartOption!} height={280} />
               ) : (
                 <p className="text-sm text-slate-500">В выбранном коридоре нет данных об автомобилях.</p>
               )}
-            </Card>
+            </Section>
           </div>
 
-          <Card title="Персональные рекомендации для этого маршрута" subtitle="Правила рассчитаны по всей стране · совпадение с погодой и составом потока на маршруте">
+          <Section title="Правила для этого маршрута" lead="Рассчитаны по всей стране, отобраны по погоде и составу потока на маршруте.">
             <div className="mb-3 flex items-center gap-3 text-sm">
               <span className="text-slate-400">Твой стаж:</span>
               <select value={expBucket} onChange={(e) => setExpBucket(Number(e.target.value))} className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs">
@@ -926,7 +915,7 @@ export default function RouteTab() {
                 </div>
               ))}
             </div>
-          </Card>
+          </Section>
         </>
       )}
     </div>

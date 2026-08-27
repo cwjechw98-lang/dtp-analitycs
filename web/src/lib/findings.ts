@@ -43,6 +43,15 @@ export interface Finding {
   n: number;
   /** пары «подпись → значение» для доказательной части */
   evidence: [string, string][];
+  /**
+   * Находка предупреждает (здесь хуже) или успокаивает (здесь лучше).
+   *
+   * Явное поле, а не разбор готового текста регуляркой: в JavaScript
+   * граница слова \b определена только для латиницы, поэтому
+   * /\bреже\b/ на кириллице не совпадает НИКОГДА. Такая проверка
+   * молча возвращала бы «предупреждает» для всех находок подряд.
+   */
+  warns?: boolean;
 }
 
 /** Русская дробь: toFixed даёт точку, а в тексте нужна запятая. */
@@ -81,6 +90,7 @@ function inferential(
   nB: number,
   text: (relative: number, deltaPp: number) => string,
   evidence: [string, string][],
+  warns = true,
 ): Finding | null {
   if (nA < MIN_N || nB < MIN_N) return null;
   const deltaPp = Math.abs(shareA - shareB);
@@ -97,6 +107,7 @@ function inferential(
     weight: Math.max(relative, deltaPp * 5),
     n: Math.min(nA, nB),
     evidence,
+    warns,
   };
 }
 
@@ -306,6 +317,9 @@ export function compareBrands({ nameA, a, nameB, b }: BrandPair): Finding[] {
   // Выводные всегда выше описательных: вердиктом должно становиться
   // утверждение о различии, а не констатация факта. Веса у разных типов
   // несопоставимы между собой, поэтому сравнивать их напрямую нельзя.
+  // Выводные всегда выше описательных: вердиктом должно становиться
+  // утверждение о различии, а не констатация факта. Веса у разных типов
+  // несопоставимы между собой, поэтому сравнивать их напрямую нельзя.
   const rank = (f: Finding) => (f.kind === "inferential" ? 0 : 1);
   return (out.filter(Boolean) as Finding[]).sort(
     (x, y) => rank(x) - rank(y) || y.weight - x.weight,
@@ -328,5 +342,205 @@ export function noDifferenceText(nameA: string, nameB: string): string {
   return (
     `По ключевым показателям ${nameA} и ${nameB} статистически неразличимы: ` +
     `разница в тяжести, вине и нарушениях не выходит за порог значимости.`
+  );
+}
+
+/* ==================== находки по коридору маршрута ==================== */
+
+/**
+ * Маршрутные находки (план v3, раздел «Почему это важно именно для маршрута»).
+ *
+ * Ключевое отличие от сравнения марок: типичный коридор — около тысячи ДТП,
+ * и любое дробление роняет ячейку ниже порога. Дождь даёт ~120 случаев,
+ * дождь плюс тяжёлый исход ~78, отдельный участок ~90.
+ *
+ * Поэтому ВЫВОДНЫЕ находки строятся только на коридоре ЦЕЛИКОМ против
+ * национальной базы, где n равен всему коридору. Всё, что мельче —
+ * описательные утверждения со счётом.
+ */
+
+export interface CorridorInput {
+  total: number;
+  /** доля тяжёлых и с погибшими */
+  severeShare: number;
+  dead: number;
+  /** [категория, число] по коридору */
+  topCats: [string, number][];
+  /** [название погоды, число] по коридору */
+  topWeathers: [string, number][];
+  worstHours: { h: number; c: number; lift: number }[];
+}
+
+export interface NationalBaseline {
+  total: number;
+  /** [лёгкие, тяжёлые, с погибшими] по стране */
+  severityTotals: [number, number, number];
+  categories: [string, number][];
+  weathers: [string, number][];
+}
+
+const hh = (h: number) => `${String(h).padStart(2, "0")}:00`;
+
+export function corridorFindings(c: CorridorInput, base: NationalBaseline): Finding[] {
+  const out: (Finding | null)[] = [];
+  if (c.total <= 0 || base.total <= 0) return [];
+
+  const baseSevere = (base.severityTotals[1] + base.severityTotals[2]) / base.total;
+  const baseDeath = base.severityTotals[2] / base.total;
+
+  // --- тяжесть коридора против страны ---
+  out.push(
+    inferential(
+      "corridor-severe",
+      c.severeShare,
+      baseSevere,
+      c.total,
+      base.total,
+      (_rel, pp) =>
+        c.severeShare > baseSevere
+          ? `Последствия здесь тяжелее обычного: ${pct(c.severeShare)} происшествий с пострадавшими или погибшими против ${pct(baseSevere)} в среднем по стране.`
+          : `Последствия здесь легче среднего: ${pct(c.severeShare)} против ${pct(baseSevere)} по стране — разница ${dec(pp * 100)} п.п.`,
+      [
+        ["На маршруте", pct(c.severeShare)],
+        ["В среднем по России", pct(baseSevere)],
+      ],
+      c.severeShare > baseSevere,
+    ),
+  );
+
+  // --- смертность коридора против страны ---
+  {
+    const share = c.dead / c.total;
+    out.push(
+      inferential(
+        "corridor-death",
+        share,
+        baseDeath,
+        c.total,
+        base.total,
+        (rel) =>
+          share > baseDeath
+            ? `Погибшие на этом маршруте встречаются в ${dec(1 + rel)} раза чаще, чем в среднем по стране.`
+            : `Погибшие здесь встречаются реже среднего: ${pct(share)} против ${pct(baseDeath)}.`,
+        [
+          ["Погибших на маршруте", `${num(c.dead)} из ${num(c.total)} ДТП`],
+          ["Доля по стране", pct(baseDeath)],
+        ],
+        share > baseDeath,
+      ),
+    );
+  }
+
+  // --- характерный тип происшествия ---
+  {
+    const baseByCat = new Map(base.categories);
+    let best: { name: string; sc: number; sb: number } | null = null;
+    for (const [name, count] of c.topCats.slice(0, 6)) {
+      const bn = baseByCat.get(name);
+      // Категории, которой нет в национальном топе, сравнивать не с чем:
+      // список обрезан, и отсутствие не означает ноль.
+      if (!bn) continue;
+      const sc = count / c.total;
+      const sb = bn / base.total;
+      if (!best || Math.abs(sc - sb) > Math.abs(best.sc - best.sb)) best = { name, sc, sb };
+    }
+    if (best) {
+      out.push(
+        inferential(
+          "corridor-cat",
+          best.sc,
+          best.sb,
+          c.total,
+          base.total,
+          (rel) =>
+            best!.sc > best!.sb
+              ? `Здесь заметно чаще происходит «${lowerFirst(best!.name)}» — в ${dec(1 + rel)} раза выше среднего по стране.`
+              : `Здесь реже обычного происходит «${lowerFirst(best!.name)}»: ${pct(best!.sc)} против ${pct(best!.sb)}.`,
+          [
+            ["На маршруте", pct(best.sc)],
+            ["По стране", pct(best.sb)],
+          ],
+          best.sc > best.sb,
+        ),
+      );
+    }
+  }
+
+  // --- погода ---
+  {
+    const baseByW = new Map(base.weathers);
+    let best: { name: string; sc: number; sb: number } | null = null;
+    for (const [name, count] of c.topWeathers.slice(0, 5)) {
+      const bn = baseByW.get(name);
+      if (!bn) continue;
+      const sc = count / c.total;
+      const sb = bn / base.total;
+      if (!best || Math.abs(sc - sb) > Math.abs(best.sc - best.sb)) best = { name, sc, sb };
+    }
+    if (best && best.sc > best.sb) {
+      out.push(
+        inferential(
+          "corridor-weather",
+          best.sc,
+          best.sb,
+          c.total,
+          base.total,
+          (rel) =>
+            `Доля ДТП в погоду «${lowerFirst(best!.name)}» здесь в ${dec(1 + rel)} раза выше средней по стране.`,
+          [
+            ["На маршруте", pct(best.sc)],
+            ["По стране", pct(best.sb)],
+          ],
+          true,
+        ),
+      );
+    }
+  }
+
+  // --- час пика: описательная, со счётом ---
+  {
+    const worst = c.worstHours[0];
+    if (worst && worst.c > 0) {
+      out.push(
+        descriptive(
+          "corridor-hour",
+          `Больше всего происшествий приходится на ${hh(worst.h)} — ${num(worst.c)} из ${num(c.total)} на маршруте.`,
+          Math.max(0.2, worst.lift - 1),
+          c.total,
+          [
+            [`Час ${hh(worst.h)}`, `${num(worst.c)} ДТП`],
+            ["Отклонение от среднего часа", `×${dec(worst.lift, 2)}`],
+          ],
+        ),
+      );
+    }
+  }
+
+  /**
+   * Для маршрута сортировка по магнитуде даёт неверный результат.
+   *
+   * На трассе «наезд на пешехода реже среднего» — самая большая разница
+   * в цифрах, но для водителя это пустяк, а вынесенное вердиктом ещё и
+   * вводит в заблуждение: человек читает первую строку как оценку риска.
+   * При этом «съезд с дороги втрое выше среднего» проигрывает ей по
+   * абсолютной дельте, хотя именно это ему и нужно знать.
+   *
+   * Поэтому порядок задаётся смыслом, а не размером эффекта.
+   */
+  const PRIORITY: Record<string, number> = {
+    "corridor-death": 5,
+    "corridor-severe": 4,
+    "corridor-cat": 3,
+    "corridor-weather": 2,
+    "corridor-hour": 1,
+  };
+  /** Находка «здесь хуже среднего» важнее находки «здесь лучше»:
+      вердикт должен предупреждать, а не успокаивать. */
+  const w = (f: Finding) => (f.warns === false ? 0 : 1);
+  return (out.filter(Boolean) as Finding[]).sort(
+    (x, y) =>
+      w(y) - w(x) ||
+      (PRIORITY[y.id] ?? 0) - (PRIORITY[x.id] ?? 0) ||
+      y.weight - x.weight,
   );
 }

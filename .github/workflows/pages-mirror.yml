@@ -29,15 +29,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/data-latest --jq '.id' 2>/dev/null || echo "")
-          if [ -n "$RELEASE_ID" ]; then
-            gh api repos/${{ github.repository }}/releases/$RELEASE_ID/assets \
-              --jq '.[] | select(.name=="data-latest.tar.gz") | .url' \
-              | xargs -I{} curl -sL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" {} -o data-latest.tar.gz
-            mkdir -p web/public/data
-            tar -xzf data-latest.tar.gz -C web/public/data || echo "нет ассета, использую данные из репо"
-            rm -f data-latest.tar.gz
-          fi
+          mkdir -p web/public/data
+          gh release download data-latest \
+            -R ${{ github.repository }} \
+            --pattern 'data-latest.tar.gz' \
+            --clobber && tar -xzf data-latest.tar.gz -C web/public/data || echo "нет ассета, использую данные из репо"
+          rm -f data-latest.tar.gz
 
       - uses: actions/setup-node@v4
         with:

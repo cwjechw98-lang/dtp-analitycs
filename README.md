@@ -11,8 +11,8 @@
 > Карточка-вердикт для пары марок · движок находок · OG-превью в Telegram ·
 > советник маршрута А→Б · гео-охват и динамика по маркам.
 
-**🔗 Открыть:** [https://dtp-analitycs.pages.dev](https://dtp-analitycs.pages.dev)
-**🪞 Зеркало (GitHub Pages):** [https://cwjechw98-lang.github.io/dtp-analitycs/](https://cwjechw98-lang.github.io/dtp-analitycs/)
+**🔗 Открыть:** [https://dtp-analytics.pages.dev](https://dtp-analytics.pages.dev)
+**🪞 Зеркало (GitHub Pages):** [https://cwjechw98-lang.github.io/dtp-analytics/](https://cwjechw98-lang.github.io/dtp-analytics/)
 
 ---
 
@@ -96,7 +96,7 @@ python build_all.py            # агрегаты → ../web/public/data/
 cd ../web
 npm install
 npm test                       # unit-тесты (vitest)
-npm run dev                    # http://localhost:5173/dtp-analitycs/
+npm run dev                    # http://localhost:5173/dtp-analytics/
 npm run build                  # прод-сборка в dist/
 ```
 

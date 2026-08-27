@@ -54,7 +54,7 @@ def gen_pollinations(prompt: str, model: str = "flux", width: int = 1024, height
     """Pollinations: простой HTTPS-GET, без ключа и лимита."""
     url = ("https://image.pollinations.ai/prompt/" + quote(prompt) +
            f"?width={width}&height={height}&nologo=true&model={model}")
-    req = urllib.request.Request(url, headers={"User-Agent": "dtp-analitycs/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "dtp-analytics/1.0"})
     try:
         with urllib.request.urlopen(req, timeout=90) as r:
             return r.read()

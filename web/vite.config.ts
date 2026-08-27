@@ -11,7 +11,7 @@ import tailwindcss from "@tailwindcss/vite";
  */
 const base =
   process.env.BASE_PATH ??
-  (process.env.CF_PAGES === "1" || process.env.CF_PAGES ? "/" : "/dtp-analitycs/");
+  (process.env.CF_PAGES === "1" || process.env.CF_PAGES ? "/" : "/dtp-analytics/");
 
 export default defineConfig({
   base,

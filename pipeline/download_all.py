@@ -20,7 +20,7 @@ import zipfile
 PAGE = "https://dtp-stat.ru/opendata/"
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 RAW = ROOT / "data" / "raw"
-UA = {"User-Agent": "dtp-analitycs-pipeline/2.0"}
+UA = {"User-Agent": "dtp-analytics-pipeline/2.0"}
 
 _slug_re = re.compile(r"/media/opendata/([a-z0-9\-]+)\.geojson\.zip")
 

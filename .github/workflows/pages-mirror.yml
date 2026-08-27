@@ -1,0 +1,68 @@
+name: Mirror to GitHub Pages
+
+# Зеркало GitHub Pages (вторичное). Основной прод — Cloudflare Pages (deploy.yml / update-data.yml).
+# Скачивает готовый ассет data-latest (если есть), собирает и публикует на GitHub Pages.
+# Если ассета нет — публикует без региональных датасетов (fallback: репо-данные, если они есть).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download data snapshot (best-effort)
+        continue-on-error: true
+        run: |
+          RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/data-latest --jq '.id' 2>/dev/null || echo "")
+          if [ -n "$RELEASE_ID" ]; then
+            gh api repos/${{ github.repository }}/releases/$RELEASE_ID/assets \
+              --jq '.[] | select(.name=="data-latest.tar.gz") | .url' \
+              | xargs -I{} curl -sL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" {} -o data-latest.tar.gz
+            mkdir -p web/public/data
+            tar -xzf data-latest.tar.gz -C web/public/data || echo "нет ассета, использую данные из репо"
+            rm -f data-latest.tar.gz
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web
+        run: |
+          npm i -g npm@11.12.0 --no-audit --no-fund
+          npm ci --no-audit --no-fund
+
+      - name: Build (base=/{repo}/ для GitHub Pages)
+        working-directory: web
+        run: npm run build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

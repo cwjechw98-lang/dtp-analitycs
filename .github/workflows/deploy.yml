@@ -1,24 +1,41 @@
-name: Deploy to GitHub Pages
+name: Deploy to Cloudflare Pages
+
+# Вариант B (DTP_Analytics_new_data_update_deploy.md), GitHub Release Asset.
+# Код-деплой при push в main: скачать готовый ассет data-latest (без полного
+# data pipeline), собрать сайт и задеплоить в Cloudflare Pages.
+# Если ассета ещё нет — шаг смотрится и workflow падает с понятной ошибкой.
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
 concurrency:
-  group: pages
+  group: code-deploy
   cancel-in-progress: true
+
+permissions:
+  contents: read # для скачивания release asset
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Download data snapshot (asset data-latest)
+        run: |
+          RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/data-latest --jq '.id' 2>/dev/null || echo "")
+          if [ -z "$RELEASE_ID" ]; then
+            echo "::error:: Релиз data-latest не найден. Запусти сначала weekly workflow (или workflow_dispatch update-data)."
+            exit 1
+          fi
+          gh api repos/${{ github.repository }}/releases/$RELEASE_ID/assets \
+            --jq '.[] | select(.name=="data-latest.tar.gz") | .url' \
+            | xargs -I{} curl -sL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" {} -o data-latest.tar.gz
+          mkdir -p web/public/data
+          tar -xzf data-latest.tar.gz -C web/public/data
+          rm -f data-latest.tar.gz
 
       - uses: actions/setup-node@v4
         with:
@@ -40,20 +57,21 @@ jobs:
         working-directory: web
         run: npm test
 
-      - name: Build
+      - name: Production build (base=/ для Cloudflare)
         working-directory: web
+        env:
+          CF_PAGES: "1"
         run: npm run build
 
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: web/dist
+      - name: Install wrangler (закреплённая версия)
+        run: npm i -g wrangler@4.100.0 --no-audit --no-fund
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Deploy web/dist to Cloudflare Pages
+        working-directory: web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx wrangler pages deploy dist \
+            --project-name dtp-analytics \
+            --branch main

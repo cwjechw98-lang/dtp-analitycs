@@ -3,6 +3,11 @@ data/raw/
 *.geojson
 *.geojson.zip
 
+# Сгенерированные датасеты сайта: пересобираются weekly и живут в GitHub Release
+# asset data-latest, а не в git-истории. Уже закоммиченные файлы остаются (историю
+# не переписываем), но новые пересборки больше не попадают в main.
+web/public/data/
+
 # --- node ---
 node_modules/
 web/dist/

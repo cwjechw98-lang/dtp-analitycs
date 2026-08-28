@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { AppStateProvider } from "./state/AppState";
+import { ResearchProvider } from "./state/ResearchContext";
 import { ThemeProvider } from "./state/ThemeContext";
 
 // CSS Leaflet обязан идти ДО нашего index.css:
@@ -28,9 +29,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ThemeProvider>
       <AppStateProvider>
-        <BrowserRouter basename={basename}>
-          <App />
-        </BrowserRouter>
+        <ResearchProvider>
+          <BrowserRouter basename={basename}>
+            <App />
+          </BrowserRouter>
+        </ResearchProvider>
       </AppStateProvider>
     </ThemeProvider>
   </React.StrictMode>,

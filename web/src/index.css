@@ -130,8 +130,10 @@ body {
 }
 [data-theme="light"] .bg-slate-700,
 [data-theme="light"] .hover\:bg-slate-600:hover { background-color: #e2e8f0 !important; color: #0f172a !important; }
+[data-theme="light"] .text-slate-100,
 [data-theme="light"] .text-slate-300,
 [data-theme="light"] .text-slate-200 { color: #334155; }
+[data-theme="light"] .text-slate-400 { color: #64748b; }
 [data-theme="light"] .border-slate-700,
 [data-theme="light"] .border-slate-800 { border-color: var(--border); }
 

@@ -19,6 +19,7 @@ import { NavLink, useLocation } from "react-router-dom";
 export const SECTIONS = [
   { to: "/route", label: "Маршрут", glyph: "◈" },
   { to: "/atlas", label: "Атлас", glyph: "▦" },
+  { to: "/lab", label: "Лаборатория", glyph: "🧪" },
   { to: "/fleet", label: "Марки", glyph: "◉" },
   { to: "/me", label: "Профиль", glyph: "◐" },
 ] as const;

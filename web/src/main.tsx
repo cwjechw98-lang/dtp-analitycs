@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { AppStateProvider } from "./state/AppState";
 import { ResearchProvider } from "./state/ResearchContext";
+import { LabProvider } from "./state/LabContext";
 import { ThemeProvider } from "./state/ThemeContext";
 
 // CSS Leaflet обязан идти ДО нашего index.css:
@@ -30,9 +31,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <ThemeProvider>
       <AppStateProvider>
         <ResearchProvider>
-          <BrowserRouter basename={basename}>
-            <App />
-          </BrowserRouter>
+          <LabProvider>
+            <BrowserRouter basename={basename}>
+              <App />
+            </BrowserRouter>
+          </LabProvider>
         </ResearchProvider>
       </AppStateProvider>
     </ThemeProvider>

@@ -18,6 +18,7 @@ const RoutePage = lazy(() => import("./pages/RoutePage"));
 const AtlasPage = lazy(() => import("./pages/AtlasPage"));
 const FleetPage = lazy(() => import("./pages/FleetPage"));
 const MePage = lazy(() => import("./pages/MePage"));
+const LabPage = lazy(() => import("./pages/LabPage"));
 
 function SectionFallback() {
   return (
@@ -87,6 +88,7 @@ function Shell() {
             <Routes location={location}>
               <Route path="/route" element={<RoutePage />} />
               <Route path="/atlas" element={<AtlasPage />} />
+              <Route path="/lab" element={<LabPage />} />
               <Route path="/fleet" element={<FleetPage />} />
               <Route path="/me" element={<MePage />} />
               {/* Launcher: настоящая публичная входная точка. Раньше здесь

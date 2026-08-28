@@ -66,7 +66,13 @@ function MiniChart({ title, kind }: { title: string; kind: "severity" | "time" |
 
 function BlockView({ block }: { block: LabBlock }) {
   const { dispatch } = useLab();
+  const app = useApp();
+  const { filteredRows } = useResearch();
   const meta = BLOCK_META[block.type];
+  const mapRows = useMemo(
+    () => (app.scope !== "ALL" && app.regionFile ? filteredRows(app.regionFile.rows) : undefined),
+    [app.scope, app.regionFile, filteredRows]
+  );
   return (
     <Card className={`min-w-0 ${block.span === 12 ? "col-span-12" : block.span === 6 ? "sm:col-span-6" : "sm:col-span-3"}`}>
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -86,7 +92,7 @@ function BlockView({ block }: { block: LabBlock }) {
           <button onClick={() => dispatch({ type: "remove", id: block.id })} className="rounded px-1 text-xs text-slate-500 hover:text-red-400" title="Удалить">✕</button>
         </div>
       </div>
-      {block.type === "map" && <MapTab rows={undefined} />}
+      {block.type === "map" && <MapTab rows={mapRows} />}
       {block.type === "findings" && <ResearchFindings />}
       {block.type === "severity" && <MiniChart title="Тяжесть" kind="severity" />}
       {block.type === "time" && <MiniChart title="Время суток" kind="time" />}

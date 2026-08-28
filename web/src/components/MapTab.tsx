@@ -322,6 +322,7 @@ function RegionMapMode({ rows }: { rows?: import("../lib/types").PointRow[] }) {
 
   return (
     <div className="space-y-4">
+      {!rows && (
       <Card title="Фильтры" subtitle="По умолчанию показан только последний год — так карта остаётся быстрой. Расширяй период при необходимости.">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
           <div className="flex items-center gap-1.5">
@@ -427,6 +428,7 @@ function RegionMapMode({ rows }: { rows?: import("../lib/types").PointRow[] }) {
           </p>
         )}
       </Card>
+      )}
 
       <div className="relative overflow-hidden rounded-2xl border border-slate-800">
         <div ref={el} className="h-[70vh] min-h-[420px] w-full" />

@@ -6,6 +6,7 @@ import ResearchFilters from "../components/ResearchFilters";
 import ResearchFindings from "../components/ResearchFindings";
 import ResearchShare from "../components/ResearchShare";
 import CoffeeBlock from "../components/CoffeeBlock";
+import StatBoard from "../components/StatBoard";
 import { useApp } from "../state/AppState";
 import { useResearch } from "../state/ResearchContext";
 import { useSeo } from "../lib/seo";
@@ -63,6 +64,7 @@ export default function AtlasPage() {
 
           {!app.regionFile && app.scope !== "ALL" ? null : (
             <>
+              <StatBoard />
               <section id="overview" className="scroll-mt-[150px]">
                 <OverviewTab rows={rowsProp} />
               </section>

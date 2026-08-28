@@ -61,11 +61,11 @@ export default function CoffeeBlock({ accidentsScanned }: { accidentsScanned?: n
             Сервис бесплатный и таким останется.
           </p>
 
-          {support && (
+          {support && support.raised > 0 && (
             <div className="mt-3">
               <div className="flex items-baseline justify-between text-[11px] text-slate-400">
                 <span>
-                  Собрано в этом месяце: <b className="text-slate-200">{nf.format(support.raised)} ₽</b> из{" "}
+                  Поддержали в этом месяце: <b className="text-slate-200">{nf.format(support.raised)} ₽</b> из{" "}
                   {nf.format(support.goal)} ₽
                 </span>
                 <span className="text-slate-500">{pct}%</span>

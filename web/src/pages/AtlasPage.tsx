@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import OverviewTab from "../components/OverviewTab";
 import TimeTab from "../components/TimeTab";
 import MapTab from "../components/MapTab";
-import ResearchFilters from "../components/ResearchFilters";
+import ResearchFilterBar from "../components/ResearchFilterBar";
+import ResearchSheet from "../components/ResearchSheet";
 import ResearchFindings from "../components/ResearchFindings";
 import ResearchShare from "../components/ResearchShare";
 import CoffeeBlock from "../components/CoffeeBlock";
@@ -12,16 +13,17 @@ import { useResearch } from "../state/ResearchContext";
 import { useSeo } from "../lib/seo";
 
 /**
- * Atlas Research Surface (Этап C).
- * Desktop: фильтры сверху (или слева), под ними карта + вывод + графики.
- * Mobile: фильтры — bottom sheet/drawer, главный вывод без длинного scroll.
- * Все поверхности читают единый ResearchProvider state (один источник истины).
+ * Atlas Research Surface (Этап C, редизайн по фидбеку).
+ * Сверху — компактная строка состояния (чипы активных фильтров +
+ * «Изменить фильтры» + «Сбросить»). Карта на всю ширину, НИКОГДА не
+ * ужимается. Панель фильтров выезжает поверх: desktop — боковая ~380px,
+ * mobile — bottom sheet. Закрыл — осталось исследование с чипами.
  */
 
 export default function AtlasPage() {
   const app = useApp();
   const { filteredRows } = useResearch();
-  const [mobileFilters, setMobileFilters] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const regionName = app.scope === "ALL" ? "Россия" : app.meta.regions.find((r) => r.slug === app.scope)?.name ?? "Россия";
   useSeo(`Статистика ДТП: ${regionName} — карта, фильтры, находки`, `Интерактивная аналитика ДТП в регионе ${regionName}: карта происшествий, фильтры по классу ТС, участникам и инфраструктуре.`);
 
@@ -34,50 +36,33 @@ export default function AtlasPage() {
 
   return (
     <div className="space-y-3">
-      {/* Mobile: переключатель фильтров (bottom sheet) */}
-      <button
-        onClick={() => setMobileFilters((v) => !v)}
-        className="md:hidden w-full rounded-xl glass border border-slate-800 px-3 py-2 text-left text-sm text-slate-300"
-      >
-        <span className="font-medium">Фильтры исследования</span>
-        <span className="ml-1 text-slate-500">{mobileFilters ? "▴" : "▾"}</span>
-      </button>
-      {mobileFilters && (
-        <div className="md:hidden -mx-1 rounded-xl p-2">
-          <ResearchFilters />
-        </div>
+      {/* Строка состояния: чипы + Изменить фильтры + Сбросить */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <ResearchFilterBar onOpen={() => setSheetOpen(true)} />
+      </div>
+
+      {/* Карта на всю ширину — никогда не ужимается фильтрами */}
+      <section id="map" className="scroll-mt-[150px]">
+        <MapTab key={`${app.scope}-r`} rows={rowsProp} />
+      </section>
+
+      {!app.regionFile && app.scope !== "ALL" ? null : (
+        <>
+          <StatBoard />
+          <section id="overview" className="scroll-mt-[150px]">
+            <OverviewTab rows={rowsProp} />
+          </section>
+          <ResearchFindings />
+          <ResearchShare />
+          <CoffeeBlock />
+          <section id="time" className="scroll-mt-[150px]">
+            <TimeTab rows={rowsProp} />
+          </section>
+        </>
       )}
 
-      <div className="grid gap-4 md:grid-cols-[260px_1fr]">
-        {/* Desktop: filter sidebar */}
-        <div className="hidden md:block">
-          <div className="sticky top-[104px]">
-            <ResearchFilters />
-          </div>
-        </div>
-
-        {/* Research surface */}
-        <div className="space-y-4">
-          <section id="map" className="scroll-mt-[150px]">
-            <MapTab key={`${app.scope}-r`} rows={rowsProp} />
-          </section>
-
-          {!app.regionFile && app.scope !== "ALL" ? null : (
-            <>
-              <StatBoard />
-              <section id="overview" className="scroll-mt-[150px]">
-                <OverviewTab rows={rowsProp} />
-              </section>
-              <ResearchFindings />
-              <ResearchShare />
-              <CoffeeBlock />
-              <section id="time" className="scroll-mt-[150px]">
-                <TimeTab rows={rowsProp} />
-              </section>
-            </>
-          )}
-        </div>
-      </div>
+      {/* Выезжающая панель фильтров (desktop side / mobile bottom sheet) */}
+      <ResearchSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
     </div>
   );
 }

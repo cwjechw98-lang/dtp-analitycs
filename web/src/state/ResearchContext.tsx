@@ -99,21 +99,18 @@ export function ResearchProvider({ children }: { children: ReactNode }) {
   const app = useAppState();
   const [state, dispatch] = useReducer(reducer, { ...EMPTY, scope: "ALL" });
 
-  // AppState ещё грузится (core null) — Research рендерится после ready
-  if (!app) return null;
-  const appReady = app as NonNullable<typeof app>;
-
-  // синхронизация со старым scope из AppState
+  // синхронизация со старым scope из AppState (app может быть null до готовности)
   useEffect(() => {
-    dispatch({ type: "scope", value: app.scope });
+    if (app) dispatch({ type: "scope", value: app.scope });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [app.scope]);
+  }, [app?.scope]);
 
   const filter = useMemo(() => toFilter(state), [state]);
 
   // --- URL state (B4): инициализация из URL + запись при изменении (debounce) ---
   const urlInit = useRef(false);
   useEffect(() => {
+    if (!app) return;
     const from = filterFromUrl(new URL(window.location.href), app.dicts);
     if (from.vehSupers) dispatch({ type: "vehSupers", value: from.vehSupers });
     if (from.partTypes) dispatch({ type: "partTypes", value: from.partTypes });
@@ -121,15 +118,16 @@ export function ResearchProvider({ children }: { children: ReactNode }) {
     if (from.infra) dispatch({ type: "infra", value: from.infra });
     if (from.severities) dispatch({ type: "severities", value: from.severities });
     if (from.yearMin !== undefined) dispatch({ type: "years", min: from.yearMin ?? null, max: from.yearMax ?? null });
-    // region (r): восстановить scope исследования
     const r = new URL(window.location.href).searchParams.get("r");
     if (r) app.setScope(r);
     urlInit.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [app]);
 
   const writeUrl = useCallback(
     (s: ResearchState) => {
+      if (!app) return;
+      const dicts = app.dicts;
       const u = new URL(window.location.href);
       u.searchParams.set("v", "1");
       if (s.yearMin !== null && s.yearMax !== null) {
@@ -147,18 +145,18 @@ export function ResearchProvider({ children }: { children: ReactNode }) {
         for (const i of ids) out.push(urlCodeForValue(dictName, dict[i] ?? ""));
         return out;
       };
-      const vs = codeOf("veh_supers", app.dicts.veh_supers, s.vehSupers);
+      const vs = codeOf("veh_supers", dicts.veh_supers, s.vehSupers);
       if (vs) u.searchParams.set("veh", vs.join(",")); else u.searchParams.delete("veh");
-      const ps = codeOf("part_types", app.dicts.part_types, s.partTypes);
+      const ps = codeOf("part_types", dicts.part_types, s.partTypes);
       if (ps) u.searchParams.set("part", ps.join(",")); else u.searchParams.delete("part");
-      const os = codeOf("outcome_groups", app.dicts.outcome_groups, s.outcomes);
+      const os = codeOf("outcome_groups", dicts.outcome_groups, s.outcomes);
       if (os) u.searchParams.set("out", os.join(",")); else u.searchParams.delete("out");
-      const ins = codeOf("infra_facets", app.dicts.infra_facets, s.infra);
+      const ins = codeOf("infra_facets", dicts.infra_facets, s.infra);
       if (ins) u.searchParams.set("inf", ins.join(",")); else u.searchParams.delete("inf");
       if (s.scope && s.scope !== "ALL") u.searchParams.set("r", s.scope); else u.searchParams.delete("r");
       window.history.replaceState(null, "", u.toString());
     },
-    [app.dicts]
+    [app?.dicts]
   );
 
   // запись в URL с debounce (не засорять history)

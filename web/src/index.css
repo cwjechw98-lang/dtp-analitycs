@@ -323,7 +323,7 @@ body {
   font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
-  font-size: clamp(1.35rem, 2.6vw, 2.4rem);
+  font-size: clamp(1.05rem, 2.1vw, 1.9rem); /* компактнее — табло влезает в узкие карточки */
   line-height: 1;
   color: var(--sf-accent);
   /* аналог механического табло: почти квадратная плоская ячейка, без теней */
@@ -372,11 +372,11 @@ body {
 .sf-sep {
   display: inline-block;
   min-width: 0.12em;
-  height: 1.15em;
-  font-size: clamp(1.35rem, 2.6vw, 2.4rem);
+  height: 1.18em;
+  font-size: clamp(1.05rem, 2.1vw, 1.9rem);
   font-weight: 700;
-  line-height: 1.15;
-  color: rgba(148, 163, 184, 0.35);
+  line-height: 1.18;
+  color: rgba(247, 249, 250, 0.3);
   font-family: "IBM Plex Mono", ui-monospace, monospace;
 }
 .sf-label {

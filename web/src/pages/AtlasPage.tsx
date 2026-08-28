@@ -8,6 +8,7 @@ import ResearchShare from "../components/ResearchShare";
 import CoffeeBlock from "../components/CoffeeBlock";
 import { useApp } from "../state/AppState";
 import { useResearch } from "../state/ResearchContext";
+import { useSeo } from "../lib/seo";
 
 /**
  * Atlas Research Surface (Этап C).
@@ -20,6 +21,8 @@ export default function AtlasPage() {
   const app = useApp();
   const { filteredRows } = useResearch();
   const [mobileFilters, setMobileFilters] = useState(false);
+  const regionName = app.scope === "ALL" ? "Россия" : app.meta.regions.find((r) => r.slug === app.scope)?.name ?? "Россия";
+  useSeo(`Статистика ДТП: ${regionName} — карта, фильтры, находки`, `Интерактивная аналитика ДТП в регионе ${regionName}: карта происшествий, фильтры по классу ТС, участникам и инфраструктуре.`);
 
   const filtered = useMemo(() => {
     if (app.scope === "ALL" || !app.regionFile) return null;

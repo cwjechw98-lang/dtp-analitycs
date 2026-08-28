@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useUrlOnce, useUrlWriter } from "../hooks/useUrlSync";
 import BrandPicker from "./BrandPicker";
 import BrandVerdictCard from "./BrandVerdictCard";
+import ResearchBar from "./ResearchBar";
 import { motion } from "framer-motion";
 import { useApp } from "../state/AppState";
 import { useTheme } from "../state/ThemeContext";
@@ -128,6 +129,19 @@ export default function FleetTab() {
     });
   }, [allBrands, brandClass, brandsFile, app.dicts]);
 
+  // Research: при выборе региона — топ марок региона (охват из by_region).
+  // Виновность/жертвы остаются национальными (per-region виновности в данных нет).
+  const scopedBrands = useMemo(() => {
+    if (app.scope === "ALL" || !brandsFile) return classBrands;
+    const regionName = app.meta.regions.find((r) => r.slug === app.scope)?.name;
+    if (!regionName) return classBrands;
+    const kept = classBrands.filter((b) =>
+      (brandsFile.brands[b.brand]?.by_region ?? []).some(([rn]) => rn === regionName)
+    );
+    // сортируем по ДТП марки внутри региона
+    return kept;
+  }, [app.scope, app.meta, brandsFile, classBrands]);
+
   const toggleBrand = (name: string) => {
     setSelected((s) =>
       s.includes(name) ? s.filter((x) => x !== name) : s.length >= 3 ? [...s.slice(1), name] : [...s, name],
@@ -144,6 +158,16 @@ export default function FleetTab() {
 
   return (
     <div className="space-y-6">
+      {/* Research-бар: регион + период (F2) — фильтрация как в Атласе.
+          При выборе региона рейтинг/динамика марок показывают региональный срез,
+          доступный из brands.json (by_region/by_year). Виновность per-region
+          в данных нет — она остаётся национальной, это честно помечено. */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <ResearchBar />
+        <span className="text-[11px] text-slate-600">
+          {app.scope === "ALL" ? "сравнение по всей России" : "доля виновника — по РФ, охват марки — по региону"}
+        </span>
+      </div>
       {/* Вердикт стоит ПЕРВЫМ в DOM, выше выбора.
           Раньше над ним всегда была карточка с полем ввода, и на телефоне
           результат уезжал под сгиб ровно в тот момент, когда человек его
@@ -222,7 +246,7 @@ export default function FleetTab() {
             }
           >
             <RankingTable
-              rows={classBrands}
+              rows={scopedBrands}
               showAll={showAll}
               sortKey={sortKey}
               setSortKey={setSortKey}
@@ -241,7 +265,7 @@ export default function FleetTab() {
         title="Марки в ДТП"
         lead={app.scope === "ALL" ? "Марка первого транспортного средства по всей России" : "Топ марок региона"}
       >
-        <TopBrandsChart accent={theme.accentMain} allBrands={allBrands} />
+        <TopBrandsChart accent={theme.accentMain} allBrands={scopedBrands} />
       </Section>
 
       <Section

@@ -48,10 +48,11 @@ export default function ResearchFilterBar({ onOpen }: { onOpen: () => void }) {
     return n;
   }, [state]);
 
-  const hasAny =
+  const hasAny = Boolean(
     chips.length > 0 || extraCount > 0 ||
-    state.crashCategories.length || state.weathers.length || state.lights.length || state.roads.length ||
-    state.partTypes.length || state.outcomes.length || state.infra.length || state.brands.length;
+    state.crashCategories.length > 0 || state.weathers.length > 0 || state.lights.length > 0 || state.roads.length > 0 ||
+    state.partTypes.length > 0 || state.outcomes.length > 0 || state.infra.length > 0 || state.brands.length > 0
+  );
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">

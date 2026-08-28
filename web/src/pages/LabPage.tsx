@@ -110,10 +110,27 @@ function useSlice() {
   const app = useApp();
   const { filteredRows } = useResearch();
   return useMemo(() => {
-    if (app.scope === "ALL" || !app.regionFile) return null;
+    // «Вся Россия» — полноценный scope: национальные агрегаты (не пустота).
+    if (app.scope === "ALL") {
+      const n = app.national;
+      return {
+        slice: null,
+        d: {
+          total: app.meta.total_accidents,
+          dead: app.meta.totals.dead,
+          injured: app.meta.totals.injured,
+          dateMin: app.meta.date_min,
+          dateMax: app.meta.date_max,
+          overview: n.overview,
+          temporal: n.temporal,
+        },
+        regionScope: false,
+      };
+    }
+    if (!app.regionFile) return null;
     const slice = filteredRows(app.regionFile.rows);
     const d = deriveRegion(slice, app.dicts);
-    return { slice, d };
+    return { slice, d, regionScope: true };
   }, [app, filteredRows]);
 }
 
@@ -178,33 +195,39 @@ function BlockBody({ block }: { block: LabBlock }) {
     };
     return <EChart option={option} height={200} />;
   }
-  if (block.type === "participants") {
-    // типы участников из semantic-битмаски PART_TYPES (COL.PART_TYPES = 17)
-    const data = maskCounts(ctx.slice, 17, app.dicts.part_types);
-    if (!data.length) return <div className="py-6 text-center text-xs text-slate-400">Нет данных об участниках в срезе</div>;
-    const option: echarts.EChartsOption = {
-      tooltip: { trigger: "item" },
-      series: [{ type: "pie", radius: ["42%", "70%"], center: ["50%", "46%"], label: { show: false },
-        data: data.slice(0, 8).map(([name, v]) => ({ name, value: v })) }],
-    };
-    return <EChart option={option} height={200} />;
-  }
-  if (block.type === "infra") {
-    // инфраструктурные фасеты из битмаски INFRA (COL.INFRA = 19)
-    const data = maskCounts(ctx.slice, 19, app.dicts.infra_facets);
-    if (!data.length) return <div className="py-6 text-center text-xs text-slate-400">Нет данных об инфраструктуре в срезе</div>;
-    const option: echarts.EChartsOption = {
-      tooltip: { trigger: "axis" },
-      xAxis: { type: "category", data: data.slice(0, 8).map(([n]) => n), axisLabel: { color: "#94a3b8", rotate: 25, fontSize: 9 } },
-      yAxis: { type: "value", splitLine: { lineStyle: { color: "#1e293b" } } },
-      series: [{ type: "bar", data: data.slice(0, 8).map(([, v]) => v), itemStyle: { color: "#22d3ee" } }],
-    };
-    return <EChart option={option} height={200} />;
-  }
-  if (block.type === "brands") {
-    // первая марка ТС из строки (COL.BRAND = 11) — топ марок среза
+  if (block.type === "participants" || block.type === "infra" || block.type === "brands") {
+    const slice = ctx.slice;
+    if (!slice) return (
+      <div className="py-8 text-center text-xs text-slate-500">
+        Доступно при выборе региона — агрегаты по всей России показаны выше
+      </div>
+    );
+    if (block.type === "participants") {
+      // типы участников из semantic-битмаски PART_TYPES (COL.PART_TYPES = 17)
+      const data = maskCounts(slice, 17, app.dicts.part_types);
+      if (!data.length) return <div className="py-6 text-center text-xs text-slate-400">Нет данных об участниках в срезе</div>;
+      const option: echarts.EChartsOption = {
+        tooltip: { trigger: "item" },
+        series: [{ type: "pie", radius: ["42%", "70%"], center: ["50%", "46%"], label: { show: false },
+          data: data.slice(0, 8).map(([name, v]) => ({ name, value: v })) }],
+      };
+      return <EChart option={option} height={200} />;
+    }
+    if (block.type === "infra") {
+      // инфраструктурные фасеты из битмаски INFRA (COL.INFRA = 19)
+      const data = maskCounts(slice, 19, app.dicts.infra_facets);
+      if (!data.length) return <div className="py-6 text-center text-xs text-slate-400">Нет данных об инфраструктуре в срезе</div>;
+      const option: echarts.EChartsOption = {
+        tooltip: { trigger: "axis" },
+        xAxis: { type: "category", data: data.slice(0, 8).map(([n]) => n), axisLabel: { color: "#94a3b8", rotate: 25, fontSize: 9 } },
+        yAxis: { type: "value", splitLine: { lineStyle: { color: "#1e293b" } } },
+        series: [{ type: "bar", data: data.slice(0, 8).map(([, v]) => v), itemStyle: { color: "#22d3ee" } }],
+      };
+      return <EChart option={option} height={200} />;
+    }
+    // brands: первая марка ТС из строки (COL.BRAND = 11) — топ марок среза
     const byBrand = new Map<number, number>();
-    for (const r of ctx.slice) {
+    for (const r of slice) {
       const b = r[11] ?? -1;
       if (b >= 0) byBrand.set(b, (byBrand.get(b) ?? 0) + 1);
     }

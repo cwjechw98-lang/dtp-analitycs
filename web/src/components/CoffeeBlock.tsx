@@ -45,8 +45,8 @@ export default function CoffeeBlock({ accidentsScanned }: { accidentsScanned?: n
       });
   }, []);
 
-  if (!SUPPORT_URL) return null;
-
+  // Блок показывается всегда: кнопка ведёт на модалку ЮMoney (если VITE_SUPPORT_URL
+  // не задан) или на внешнюю ссылку поддержки (если задан).
   const pct = support ? Math.min(100, Math.round((support.raised / support.goal) * 100)) : 0;
 
   return (

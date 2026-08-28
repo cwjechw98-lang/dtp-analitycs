@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { trackPlate, trackPlateShown } from "../lib/analytics";
 
 /**
  * Монетизационная плашечка (гипотеза, по плану GLM-5.3):
@@ -22,6 +23,7 @@ export default function DonatePlate({ onSupport }: { onSupport: () => void }) {
       if (!shownRef.current) {
         shownRef.current = true;
         setVisible(true);
+        trackPlateShown(); // impression для CTR-метрики
       }
     }, 800);
     return () => clearTimeout(t);
@@ -48,7 +50,7 @@ export default function DonatePlate({ onSupport }: { onSupport: () => void }) {
           </p>
           <div className="flex shrink-0 items-center gap-1.5">
             <button
-              onClick={() => { onSupport(); setVisible(false); }}
+              onClick={() => { trackPlate("plate"); onSupport(); setVisible(false); }}
               className="rounded-lg bg-orange-500 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-orange-600"
             >
               Поддержать →

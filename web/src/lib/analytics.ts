@@ -54,6 +54,16 @@ export function trackTip() {
   send("tip_click");
 }
 
+/** Клик по монетизационной плашечке (CTR-метрика: плашка vs CoffeeBlock). */
+export function trackPlate(kind: "plate" | "coffee" | "modal") {
+  send("donate_click", { kind });
+}
+
+/** Показ плашечки (impression для CTR). */
+export function trackPlateShown() {
+  send("donate_plate_shown");
+}
+
 /**
  * Переход по пересланной ссылке: определяем по наличию параметров,
  * которые сам пользователь руками не набирает.

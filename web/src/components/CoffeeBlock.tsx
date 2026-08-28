@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { nf } from "../lib/format";
+import { trackPlate } from "../lib/analytics";
 import SupportModal from "./SupportModal";
 
 /**
@@ -89,6 +90,7 @@ export default function CoffeeBlock({ accidentsScanned }: { accidentsScanned?: n
             target="_blank"
             rel="noreferrer"
             onClick={() => {
+              trackPlate("coffee");
               import("../lib/analytics").then((m) => m.trackTip());
             }}
             className="glow-ring shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition"
@@ -99,6 +101,7 @@ export default function CoffeeBlock({ accidentsScanned }: { accidentsScanned?: n
         ) : (
           <button
             onClick={() => {
+              trackPlate("coffee");
               setModal(true);
               import("../lib/analytics").then((m) => m.trackTip());
             }}

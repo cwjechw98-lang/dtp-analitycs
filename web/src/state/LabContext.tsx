@@ -1,18 +1,23 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from "react";
 
 /**
- * «Лаборатория» (этап по фидбеку): пользователь сам собирает блоки
- * (карта, графики, находки, статистика) в свою раскладку и делится ею.
- * Раскладка сериализуется в `?lab=` (тип.span, порядок = порядок на экране),
- * не трогая параметры ResearchProvider (фильтры).
+ * «Лаборатория» (редизайн по фидбеку): пользователь сам собирает исследование
+ * из заранее спроектированных блоков (не Tableau-конструктор). Все блоки
+ * питаются единым ResearchProvider (один срез — вся лаборатория перестраивается).
+ * Раскладка сериализуется в `?lab=` (тип.размер, порядок), фильтры — в параметрах
+ * ResearchProvider (y/sev/veh/r...). URL хранит и фильтры, и композицию.
  */
 
-export type LabBlockType = "map" | "severity" | "time" | "findings" | "stats" | "category";
+export type LabBlockType =
+  | "map" | "years" | "severity" | "brands" | "tod" | "weather"
+  | "category" | "participants" | "infra" | "findings";
+
+export type LabSize = "S" | "M" | "L";
 
 export interface LabBlock {
   id: string;
   type: LabBlockType;
-  span: 3 | 6 | 12;
+  size: LabSize;
 }
 
 export interface LabState {
@@ -22,25 +27,31 @@ export interface LabState {
 export type LabAction =
   | { type: "add"; block: LabBlock }
   | { type: "remove"; id: string }
+  | { type: "duplicate"; id: string }
   | { type: "move"; id: string; dir: -1 | 1 }
   | { type: "reorder"; from: number; to: number }
-  | { type: "span"; id: string; span: LabBlock["span"] }
+  | { type: "size"; id: string; size: LabSize }
   | { type: "set"; blocks: LabBlock[] }
   | { type: "reset" };
 
-const DEFAULT_BLOCKS: LabBlock[] = [
-  { id: "b-map", type: "map", span: 12 },
-  { id: "b-sev", type: "severity", span: 6 },
-  { id: "b-find", type: "findings", span: 6 },
-  { id: "b-time", type: "time", span: 12 },
-];
+/** Пустой старт — «Что добавить в исследование?» (по видению пользователя). */
+const EMPTY_BLOCKS: LabBlock[] = [];
 
 function reducer(s: LabState, a: LabAction): LabState {
   switch (a.type) {
     case "set": return { blocks: a.blocks };
-    case "reset": return { blocks: DEFAULT_BLOCKS };
+    case "reset": return { blocks: EMPTY_BLOCKS };
     case "add": return { blocks: [...s.blocks, a.block] };
     case "remove": return { blocks: s.blocks.filter((b) => b.id !== a.id) };
+    case "duplicate": {
+      const i = s.blocks.findIndex((b) => b.id === a.id);
+      if (i < 0) return s;
+      const src = s.blocks[i];
+      const copy = { ...src, id: `${src.type}-dup-${Date.now()}` };
+      const arr = [...s.blocks];
+      arr.splice(i + 1, 0, copy);
+      return { blocks: arr };
+    }
     case "move": {
       const i = s.blocks.findIndex((b) => b.id === a.id);
       const j = i + a.dir;
@@ -56,29 +67,30 @@ function reducer(s: LabState, a: LabAction): LabState {
       arr.splice(a.to, 0, moved);
       return { blocks: arr };
     }
-    case "span":
-      return { blocks: s.blocks.map((b) => (b.id === a.id ? { ...b, span: a.span } : b)) };
+    case "size":
+      return { blocks: s.blocks.map((b) => (b.id === a.id ? { ...b, size: a.size } : b)) };
     default: return s;
   }
 }
 
-/** Сериализация раскладки: "map.12,severity.6,..." */
+/** Сериализация раскладки: "map.L,years.M,severity.M,..." */
 export function serializeLab(blocks: LabBlock[]): string {
-  return blocks.map((b) => `${b.type}.${b.span}`).join(",");
+  return blocks.map((b) => `${b.type}.${b.size}`).join(",");
 }
 
-/** Парсинг раскладки из URL; при пустой/битой — дефолт. */
+/** Парсинг раскладки из URL; при пустой/битой — пустой старт. */
 export function parseLab(raw: string | null): LabBlock[] {
-  if (!raw) return DEFAULT_BLOCKS;
+  if (!raw) return EMPTY_BLOCKS;
+  const VALID: LabBlockType[] = ["map", "years", "severity", "brands", "tod", "weather", "category", "participants", "infra", "findings"];
   const out: LabBlock[] = [];
   for (const tok of raw.split(",")) {
-    const [type, span] = tok.split(".");
+    const [type, size] = tok.split(".");
     const t = type as LabBlockType;
-    if (!["map", "severity", "time", "findings", "stats", "category"].includes(t)) continue;
-    const sp = Number(span);
-    out.push({ id: `${t}-${out.length}`, type: t, span: sp === 3 || sp === 6 || sp === 12 ? sp : 12 });
+    if (!VALID.includes(t)) continue;
+    const sz = size as LabSize;
+    out.push({ id: `${t}-${out.length}`, type: t, size: sz === "S" || sz === "M" || sz === "L" ? sz : "M" });
   }
-  return out.length ? out : DEFAULT_BLOCKS;
+  return out;
 }
 
 const Ctx = createContext<{ state: LabState; dispatch: (a: LabAction) => void } | null>(null);

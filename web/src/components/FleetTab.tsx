@@ -165,7 +165,9 @@ export default function FleetTab() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <ResearchBar />
         <span className="text-[11px] text-slate-600">
-          {app.scope === "ALL" ? "сравнение по всей России" : "доля виновника — по РФ, охват марки — по региону"}
+          {app.scope === "ALL"
+            ? "рейтинг — по всему периоду · период смотрит на профиль марки"
+            : "доля виновника — по РФ, охват марки — по региону"}
         </span>
       </div>
       {/* Вердикт стоит ПЕРВЫМ в DOM, выше выбора.

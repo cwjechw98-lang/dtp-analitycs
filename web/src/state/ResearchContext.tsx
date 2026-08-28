@@ -1,7 +1,7 @@
 import { createContext, useContext, useCallback, useEffect, useMemo, useReducer, useRef, type ReactNode } from "react";
 import type { PointRow } from "../lib/types";
 import { rowPasses, filterFromUrl, urlCodeForValue, type ResearchFilter } from "../lib/research";
-import { useApp } from "./AppState";
+import { useAppState } from "./AppState";
 
 /**
  * Shared Research filter engine (Этап B).
@@ -96,8 +96,12 @@ const Ctx = createContext<{
 } | null>(null);
 
 export function ResearchProvider({ children }: { children: ReactNode }) {
-  const app = useApp();
-  const [state, dispatch] = useReducer(reducer, { ...EMPTY, scope: app.scope });
+  const app = useAppState();
+  const [state, dispatch] = useReducer(reducer, { ...EMPTY, scope: "ALL" });
+
+  // AppState ещё грузится (core null) — Research рендерится после ready
+  if (!app) return null;
+  const appReady = app as NonNullable<typeof app>;
 
   // синхронизация со старым scope из AppState
   useEffect(() => {

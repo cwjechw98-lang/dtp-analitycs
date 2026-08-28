@@ -318,18 +318,33 @@ body {
   position: relative;
   display: inline-block;
   min-width: 0.72em;
-  height: 1.15em;
-  overflow: hidden;
+  height: 1.18em;
+  overflow: visible; /* шов и стыки видны */
   font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: clamp(1.35rem, 2.6vw, 2.4rem);
   line-height: 1;
   color: var(--sf-accent);
-  background: linear-gradient(180deg, #171d2e 0%, #0d1220 55%, #131b30 100%);
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  border-radius: 4px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 1px 3px rgba(0, 0, 0, 0.4);
+  /* аналог механического табло: почти квадратная плоская ячейка, без теней */
+  background: #090c14;
+  border: 1px solid rgba(247, 249, 250, 0.16);
+  border-bottom-width: 2px;
+  border-radius: 2px;
+  box-shadow: none; /* shadowless — как на референсе */
+}
+/* центральный шов между пластинками — как у Solari */
+.sf-char::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1.5px;
+  margin-top: -0.75px;
+  background: rgba(9, 9, 9, 0.9);
+  border-top: 1px solid rgba(247, 249, 250, 0.12);
+  pointer-events: none;
 }
 .sf-top, .sf-bottom {
   position: absolute;
@@ -345,14 +360,14 @@ body {
 .sf-top {
   top: 0;
   align-items: flex-start;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.55);
-  /* затемнение верхней половины — как у механических табло */
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0));
+  /* лёгкое затенение верхней пластинки — имитация освещения сверху */
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.28), rgba(0, 0, 0, 0));
+  mask-image: linear-gradient(180deg, rgba(0,0,0,0.85), rgba(0,0,0,0.92));
 }
 .sf-bottom {
   bottom: 0;
   align-items: flex-end;
-  background: linear-gradient(0deg, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0));
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.24), rgba(0, 0, 0, 0));
 }
 .sf-sep {
   display: inline-block;
@@ -365,10 +380,10 @@ body {
   font-family: "IBM Plex Mono", ui-monospace, monospace;
 }
 .sf-label {
-  font-size: 0.62rem;
-  letter-spacing: 0.14em;
+  font-size: 0.6rem;
+  letter-spacing: 0.2em; /* stamped-letterhead, как на референсе */
   text-transform: uppercase;
-  color: var(--muted, #64748b);
+  color: var(--muted, #6b6b6b);
 }
 
 /* анимация перелистывания: верхняя пластинка падает, нижняя поднимается */

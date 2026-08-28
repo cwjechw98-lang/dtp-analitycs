@@ -26,6 +26,9 @@ import json
 import pathlib
 import sys
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from semantic import contract as semantic  # noqa: E402
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 RAW = ROOT / "data" / "raw"
 OUT = ROOT / "web" / "public" / "data"
@@ -246,6 +249,12 @@ class Acc:
 
         self.heat_cells = collections.Counter()
 
+        # --- semantic Research (Phase 1A) ---
+        # Бит-индексы сем-атрибутов берутся из Semantic Contract v1 (детерминировано),
+        # поэтому глобальных аккумуляторов словарей НЕ нужно. Только локальный
+        # словарь местных районов ТЕКУЩЕГО региона (сбрасывается на каждый slug).
+        self.local_regions_dict = {}
+
     def feed(self, feat, rows_out: list, region: str = "") -> None:
         p = feat.get("properties") or {}
         pt = p.get("point") or {}
@@ -421,6 +430,7 @@ class Acc:
             lat, lon, ym, dow, hour, sidx, ci, li, wi, ri,
             max_exp, first_brand_idx, dead, inj,
             culprit_brand_idx, len(vehs),
+            *self._semantic_block(p, vehs),
         ])
 
         # --- прочие счётчики ---
@@ -432,6 +442,65 @@ class Acc:
         self.light_cnt[light] += 1
         self.weather_cnt[wname] += 1
         self.road_cnt[rname] += 1
+
+    def _semantic_block(self, p: dict, vehs: list) -> list[int]:
+        """Phase 1A: semantic Research-битмаски, дописываемые в конец строки региона.
+        [vehSupersMask, partTypesMask, outcomesMask, infraFacetsMask, localRegionIdx]
+        Бит-индексы — ФИКСИРОВАННЫЕ из Semantic Contract v1 (canonical_names), одинаковые
+        во всех регионах, независимо от порядка появления значений."""
+        veh_supers = 0
+        part_types = 0
+        outcomes = 0
+        infra = 0
+
+        def _pt(part):
+            nonlocal part_types
+            pt, _status = semantic.participant_type((part.get("role") or "").strip() or None)
+            if pt not in ("unknown",):
+                b = semantic.bit_index("participant", pt)
+                if b >= 0:
+                    part_types |= (1 << b)
+
+        def _out(part):
+            nonlocal outcomes
+            _det, og = semantic.human_outcome((part.get("health_status") or "").strip() or None)
+            if og not in ("unknown",):
+                b = semantic.bit_index("outcome", og)
+                if b >= 0:
+                    outcomes |= (1 << b)
+
+        for v in vehs:
+            if isinstance(v, dict):
+                sup, _st = semantic.vehicle_supercategory((v.get("category") or "").strip() or None)
+                if sup not in ("unknown",):
+                    b = semantic.bit_index("vehicle", sup)
+                    if b >= 0:
+                        veh_supers |= (1 << b)
+                for part in (v.get("participants") or []):
+                    if isinstance(part, dict):
+                        _pt(part)
+                        _out(part)
+        for part in (p.get("participants") or []):
+            if isinstance(part, dict):
+                _pt(part)
+                _out(part)
+
+        for el in (p.get("nearby") or []):
+            if el and str(el).strip():
+                _d, _g, facets = semantic.infrastructure(str(el).strip())
+                for fac in facets:
+                    if fac not in ("unknown",):
+                        b = semantic.bit_index("infrastructure", fac)
+                        if b >= 0:
+                            infra |= (1 << b)
+
+        # localRegionIdx: индекс местного района в словаре ТЕКУЩЕГО региона
+        lr = (p.get("region") or "").strip()
+        lidx = -1
+        if lr:
+            self.local_regions_dict[lr] = self.local_regions_dict.get(lr, len(self.local_regions_dict))
+            lidx = self.local_regions_dict[lr]
+        return [veh_supers, part_types, outcomes, infra, lidx]
 
 
 def dump(path: pathlib.Path, obj) -> None:
@@ -579,6 +648,7 @@ def main() -> int:
         name = slug
         r_min = r_max = None
         count = 0
+        acc.local_regions_dict = {}  # словарь местных районов — на каждый регион заново
         for feat in iter_features(src):
             props = feat.get("properties") or {}
             pr = (props.get("parent_region") or "").strip()
@@ -636,6 +706,8 @@ def main() -> int:
             "date_min": r_min, "date_max": r_max,
             "bbox": region_infos[-1]["bbox"],
             "rows": rows,
+            # Словарь местных районов региона: индекс -> название (для localRegionIdx).
+            "local_regions": list(acc.local_regions_dict.keys()),
         })
         took = (dt.datetime.now() - t0).total_seconds()
         print(f"[{num}/{len(slugs)}] {name}: {len(rows):>6} ДТП за {took:.1f} c", flush=True)
@@ -649,6 +721,12 @@ def main() -> int:
         "weathers": list(acc.weathers.keys()),
         "roads": list(acc.roads.keys()),
         "brands": list(acc.brands.keys()),
+        # --- semantic Research (Phase 1A) ---
+        # Канонические списки из Semantic Contract v1 (порядок = контракт, единый).
+        "veh_supers": semantic.canonical_names("vehicle"),
+        "part_types": semantic.canonical_names("participant"),
+        "outcome_groups": semantic.canonical_names("outcome"),
+        "infra_facets": semantic.canonical_names("infrastructure"),
     })
 
     total = acc.total
@@ -812,9 +890,12 @@ def main() -> int:
     dl_meta_path = RAW / "download_meta.json"
     dl_meta = json.loads(dl_meta_path.read_text(encoding="utf-8")) if dl_meta_path.exists() else {}
     dump(OUT / "meta.json", {
+        "data_contract_version": 2,
+        "semantic_contract_version": semantic.SEMANTIC_CONTRACT_VERSION,
         "schema_version": 2,
         "generated_at_utc": started.isoformat(),
         "source_page": dl_meta.get("opendata_page") or "https://dtp-stat.ru/opendata/",
+        "source_period": f"{acc.date_min or '?'}..{acc.date_max or '?'}",
         "coverage": "Российская Федерация",
         "total_accidents": total,
         "date_min": acc.date_min,

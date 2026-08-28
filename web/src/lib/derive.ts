@@ -20,6 +20,8 @@ export const COL = {
   LAT: 0, LON: 1, YM: 2, DOW: 3, HOUR: 4, SEV: 5, CAT: 6,
   LIGHT: 7, WEA: 8, ROAD: 9, EXP: 10, BRAND: 11, DEAD: 12, INJ: 13,
   CULPRIT: 14, VEH_COUNT: 15,
+  // Semantic Research (Phase 1A) — битмаски, дописаны в конец строки
+  VEH_SUPERS: 16, PART_TYPES: 17, OUTCOMES: 18, INFRA: 19, LOCAL_REGION: 20,
 } as const;
 
 export function deriveRegion(rows: PointRow[], d: Dictionaries): RegionDerived {

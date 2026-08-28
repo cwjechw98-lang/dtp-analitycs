@@ -10,9 +10,15 @@ export interface MetaRegion {
 }
 
 export interface Meta {
+  /** Версия контракта данных — старые схемы не должны интерпретировать новую как старую */
+  data_contract_version: number;
+  /** Версия Semantic Contract (Phase 1A) */
+  semantic_contract_version: number;
   schema_version: number;
   generated_at_utc: string;
   source_page: string;
+  /** Период источника данных: YYYY-MM-DD..YYYY-MM-DD */
+  source_period?: string;
   coverage: string;
   total_accidents: number;
   date_min: string | null;
@@ -29,6 +35,11 @@ export interface Dictionaries {
   weathers: string[];
   roads: string[];
   brands: string[];
+  /** Semantic Research (Phase 1A) — битмаски кодируются индексами этих массивов */
+  veh_supers: string[];
+  part_types: string[];
+  outcome_groups: string[];
+  infra_facets: string[];
 }
 
 export interface YearRow { year: number; accidents: number; dead: number; injured: number }
@@ -136,6 +147,8 @@ export interface RegionFile {
   date_max: string | null;
   bbox: [number, number, number, number];
   rows: PointRow[];
+  /** Словарь местных районов региона: индекс -> название (для localRegionIdx в COL.LOCAL_REGION) */
+  local_regions?: string[];
 }
 
 export interface TipRule {

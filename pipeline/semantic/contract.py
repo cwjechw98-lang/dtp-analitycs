@@ -124,6 +124,32 @@ def brand_bucket(raw: str | None) -> tuple[str, str]:
 
 
 # ---------------------------------------------------------------- helpers
+def canonical_names(attr: str) -> list[str]:
+    """Канонический упорядоченный список допустимых значений атрибута для битмасок.
+    Источник — зафиксированный порядок в mapping JSON (supercategories/types/groups),
+    без 'unknown' (unknown не кодируется битом). Детерминирован и одинаков во всех регионах."""
+    if attr == "vehicle":
+        lst = _load("vehicle").get("supercategories", [])
+    elif attr == "participant":
+        lst = _load("participants").get("types", [])
+    elif attr == "outcome":
+        lst = _load("outcomes").get("groups", [])
+    elif attr == "infrastructure":
+        lst = _load("infrastructure").get("groups", [])
+    else:
+        return []
+    return [x for x in lst if x != "unknown"]
+
+
+def bit_index(attr: str, name: str) -> int:
+    """Фиксированный бит-индекс значения в каноническом списке (по порядку из контракта).
+    Возвращает -1, если значение отсутствует (в т.ч. unknown)."""
+    try:
+        return canonical_names(attr).index(name)
+    except ValueError:
+        return -1
+
+
 def all_fields_known_for(attr: str, raw: str | None) -> bool:
     """Для schema-drift: известен ли raw в соответствующем mapping."""
     if attr == "vehicle":

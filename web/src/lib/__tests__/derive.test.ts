@@ -9,6 +9,10 @@ const dicts: Dictionaries = {
   weathers: ["Ясно"],
   roads: ["Сухое"],
   brands: ["ВАЗ", "TOYOTA"],
+  veh_supers: ["passenger_car", "truck"],
+  part_types: ["driver", "pedestrian"],
+  outcome_groups: ["not_injured", "fatal_on_scene"],
+  infra_facets: ["pedestrian_crossing", "intersection"],
 };
 
 function row(over: Partial<Record<number, number>>): PointRow {

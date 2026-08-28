@@ -3,6 +3,7 @@ import OverviewTab from "../components/OverviewTab";
 import TimeTab from "../components/TimeTab";
 import MapTab from "../components/MapTab";
 import ResearchFilters from "../components/ResearchFilters";
+import ResearchFindings from "../components/ResearchFindings";
 import { useApp } from "../state/AppState";
 import { useResearch } from "../state/ResearchContext";
 
@@ -60,6 +61,7 @@ export default function AtlasPage() {
               <section id="overview" className="scroll-mt-[150px]">
                 <OverviewTab rows={rowsProp} />
               </section>
+              <ResearchFindings />
               <section id="time" className="scroll-mt-[150px]">
                 <TimeTab rows={rowsProp} />
               </section>

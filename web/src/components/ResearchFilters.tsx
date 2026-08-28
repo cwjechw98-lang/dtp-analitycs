@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useResearch } from "../state/ResearchContext";
 import { useApp } from "../state/AppState";
 import { Section } from "./ui";
+import Combobox from "./Combobox";
 
 /**
  * Research-фильтр-панель (Этап C). Guided-first: по умолчанию 5–6 понятных
@@ -47,6 +48,40 @@ function toggleIn(arr: number[], v: number): number[] {
   return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
 }
 
+/**
+ * Выбор региона через стилизованный Combobox (не нативный select —
+ * системный дропдаун плохо читается на тёмной теме). Поиск по мере ввода.
+ */
+function RegionPicker() {
+  const app = useApp();
+  const [q, setQ] = useState("");
+
+  const options = useMemo(() => {
+    const all: { key: string; label: string; value: string }[] = [
+      { key: "ALL", label: "Вся Россия", value: "ALL" },
+      ...app.meta.regions.map((r) => ({ key: r.slug, label: r.name, value: r.slug })),
+    ];
+    const s = q.trim().toLowerCase();
+    return s ? all.filter((o) => o.label.toLowerCase().includes(s)) : all;
+  }, [app.meta.regions, q]);
+
+  const current = app.scope === "ALL" ? "Вся Россия" : app.meta.regions.find((r) => r.slug === app.scope)?.name ?? "Вся Россия";
+
+  return (
+    <Combobox
+      value={q || current}
+      placeholder="Регион…"
+      options={options}
+      onQueryChange={setQ}
+      onPick={(opt) => {
+        setQ("");
+        app.setScope(opt.value);
+      }}
+      className="text-xs"
+    />
+  );
+}
+
 export default function ResearchFilters() {
   const app = useApp();
   const { state, dispatch } = useResearch();
@@ -85,16 +120,7 @@ export default function ResearchFilters() {
       <div className="mt-3 grid gap-4 sm:grid-cols-2">
         <div>
           <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Регион</div>
-          <select
-            value={app.scope}
-            onChange={(e) => app.setScope(e.target.value)}
-            className="glass w-full rounded-lg px-2 py-1.5 text-xs"
-          >
-            <option value="ALL">Вся Россия</option>
-            {app.meta.regions.map((r) => (
-              <option key={r.slug} value={r.slug}>{r.name}</option>
-            ))}
-          </select>
+          <RegionPicker />
         </div>
         <div>
           <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Период</div>

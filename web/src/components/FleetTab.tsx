@@ -5,6 +5,7 @@ import BrandVerdictCard from "./BrandVerdictCard";
 import ResearchBar from "./ResearchBar";
 import { motion } from "framer-motion";
 import { useApp } from "../state/AppState";
+import { useResearch } from "../state/ResearchContext";
 import { useTheme } from "../state/ThemeContext";
 import type { BrandDetail, BrandsFile, CulpritBrand } from "../lib/types";
 import EChart from "./EChart";
@@ -36,6 +37,7 @@ type SortKey = "total" | "aggr" | "culpritShare";
 
 export default function FleetTab() {
   const app = useApp();
+  const { state: research } = useResearch();
   const theme = useTheme();
   const [brandsFile, setBrandsFile] = useState<BrandsFile | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
@@ -93,21 +95,38 @@ export default function FleetTab() {
   /** Национальная таблица виновник/жертва — база для рейтинга и сравнений */
   const nationalRows = useMemo(() => app.national.culprits.brands, [app.national]);
 
-  /** Полный список ВСЕХ марок из brands.json (376) — с виновником/жертвой/тяжестью. */
+  // Выбранный период (из ResearchProvider). null = весь период.
+  const yLo = research.yearMin ?? null;
+  const yHi = research.yearMax ?? null;
+  const periodActive = yLo !== null || yHi !== null;
+
+  /** Полный список ВСЕХ марок из brands.json (376) — с виновником/жертвой/тяжестью.
+   *  При ограниченном периоде пересчитываем total из by_year (реальные данные),
+   *  а culprit/victim масштабируем пропорционально (оценка по сохранённой доле).
+   */
   const allBrands = useMemo<CulpritBrand[]>(() => {
     if (!brandsFile) return [];
     const rows: CulpritBrand[] = [];
     for (const [brand, d] of Object.entries(brandsFile.brands)) {
-      rows.push({
-        brand,
-        culprit: d.culprit,
-        victim: d.victim,
-        total: d.total,
-        aggr: d.total > 0 ? d.culprit / d.total : 0,
-      });
+      let total = d.total, culprit = d.culprit, victim = d.victim;
+      if (periodActive) {
+        const lo = yLo ?? 2015, hi = yHi ?? 2026;
+        let periodTotal = 0;
+        for (const [y, c] of d.by_year ?? []) {
+          const yy = Number(y);
+          if (yy >= lo && yy <= hi) periodTotal += c;
+        }
+        if (periodTotal > 0 && d.total > 0) {
+          const scale = periodTotal / d.total;
+          total = periodTotal;
+          culprit = Math.round(d.culprit * scale);
+          victim = Math.round(d.victim * scale);
+        }
+      }
+      rows.push({ brand, culprit, victim, total, aggr: total > 0 ? culprit / total : 0 });
     }
     return rows;
-  }, [brandsFile]);
+  }, [brandsFile, periodActive, yLo, yHi]);
 
   const baselineShare = useMemo(() => {
     const src = allBrands.length ? allBrands : nationalRows;
@@ -165,9 +184,11 @@ export default function FleetTab() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <ResearchBar />
         <span className="text-[11px] text-slate-600">
-          {app.scope === "ALL"
-            ? "рейтинг — по всему периоду · период смотрит на профиль марки"
-            : "доля виновника — по РФ, охват марки — по региону"}
+          {periodActive
+            ? `ДТП — за ${yLo ?? 2015}–${yHi ?? 2026} · доля виновности — по всему периоду`
+            : app.scope === "ALL"
+              ? "рейтинг — по всему периоду"
+              : "доля виновника — по РФ, охват марки — по региону"}
         </span>
       </div>
       {/* Вердикт стоит ПЕРВЫМ в DOM, выше выбора.

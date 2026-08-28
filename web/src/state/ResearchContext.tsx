@@ -79,6 +79,10 @@ export function toFilter(s: ResearchState): ResearchFilter {
     outcomes: s.outcomes.length ? s.outcomes : undefined,
     infra: s.infra.length ? s.infra : undefined,
     severities: s.severities.length ? s.severities : undefined,
+    crashCats: s.crashCategories.length ? s.crashCategories : undefined,
+    weathers: s.weathers.length ? s.weathers : undefined,
+    lights: s.lights.length ? s.lights : undefined,
+    roads: s.roads.length ? s.roads : undefined,
     yearMin: s.yearMin ?? undefined,
     yearMax: s.yearMax ?? undefined,
   };
@@ -166,7 +170,6 @@ export function ResearchProvider({ children }: { children: ReactNode }) {
     () => ({ state, dispatch, filter, filteredRows }),
     [state, filter, filteredRows]
   );
-
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

@@ -6,19 +6,21 @@ import { deriveRegion } from "../lib/derive";
 import EChart from "./EChart";
 import { Badge, Card } from "./ui";
 import type * as echarts from "echarts";
+import type { PointRow } from "../lib/types";
 
 const SEV_NAMES = ["Лёгкие", "Тяжёлые", "С погибшими"];
 
-export default function TimeTab() {
+export default function TimeTab({ rows }: { rows?: PointRow[] }) {
   const app = useApp();
   const theme = useTheme();
   const isRu = app.scope === "ALL";
 
   const temporal = useMemo(() => {
     if (isRu) return app.national.temporal;
-    if (!app.regionFile) return null;
-    return deriveRegion(app.regionFile.rows, app.dicts).temporal;
-  }, [isRu, app.national, app.regionFile, app.dicts]);
+    const src = rows ?? app.regionFile?.rows;
+    if (!src) return null;
+    return deriveRegion(src, app.dicts).temporal;
+  }, [isRu, rows, app.national, app.regionFile, app.dicts]);
 
   const [yearIdx, setYearIdx] = useState<number | null>(null);
 

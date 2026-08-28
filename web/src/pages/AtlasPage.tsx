@@ -1,118 +1,72 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import OverviewTab from "../components/OverviewTab";
 import TimeTab from "../components/TimeTab";
 import MapTab from "../components/MapTab";
+import ResearchFilters from "../components/ResearchFilters";
 import { useApp } from "../state/AppState";
+import { useResearch } from "../state/ResearchContext";
 
 /**
- * Раздел «Атлас» — слияние прежних вкладок Обзор + Время + Карта
- * (контракт §5).
- *
- * Все три работали на одном и том же `scope`, поэтому разделение между ними
- * было искусственным: чтобы посмотреть «в моём регионе, летом, вечером»,
- * приходилось прыгать между вкладками, удерживая фильтр в голове.
- * Теперь это одна прокручиваемая страница с якорями.
- *
- * Внутренности OverviewTab / TimeTab / MapTab не изменены ни на строку —
- * они просто стоят друг под другом.
+ * Atlas Research Surface (Этап C).
+ * Desktop: фильтры сверху (или слева), под ними карта + вывод + графики.
+ * Mobile: фильтры — bottom sheet/drawer, главный вывод без длинного scroll.
+ * Все поверхности читают единый ResearchProvider state (один источник истины).
  */
-
-const ANCHORS = [
-  { id: "overview", label: "Обзор", hint: "Годы, категории, тяжесть, погода" },
-  { id: "time", label: "Время", hint: "Часы, дни недели, сезоны" },
-  { id: "map", label: "Карта", hint: "Где именно" },
-] as const;
-
-type AnchorId = (typeof ANCHORS)[number]["id"];
 
 export default function AtlasPage() {
   const app = useApp();
-  const [active, setActive] = useState<AnchorId>("overview");
-  const refs = useRef<Record<string, HTMLElement | null>>({});
+  const { filteredRows } = useResearch();
+  const [mobileFilters, setMobileFilters] = useState(false);
 
-  // Подсветка текущего якоря при прокрутке. Порог 45% высоты экрана —
-  // секция считается активной, когда занимает верхнюю половину вьюпорта.
-  useEffect(() => {
-    const io = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        if (visible?.target.id) setActive(visible.target.id as AnchorId);
-      },
-      { rootMargin: "-45% 0px -45% 0px", threshold: [0, 0.25, 0.5, 1] },
-    );
-    for (const a of ANCHORS) {
-      const el = refs.current[a.id];
-      if (el) io.observe(el);
-    }
-    return () => io.disconnect();
-  }, []);
+  const filtered = useMemo(() => {
+    if (app.scope === "ALL" || !app.regionFile) return null;
+    return filteredRows(app.regionFile.rows);
+  }, [app.scope, app.regionFile, filteredRows]);
 
-  const jump = (id: AnchorId) => {
-    refs.current[id]?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+  const rowsProp = filtered ?? undefined;
 
   return (
-    <div className="space-y-4">
-      {/* Якорная навигация: раздел длинный, без неё в нём теряешься. */}
-      <div className="sticky top-[104px] z-[850] -mx-1 flex gap-1.5 overflow-x-auto px-1 py-1">
-        {ANCHORS.map((a) => (
-          <button
-            key={a.id}
-            onClick={() => jump(a.id)}
-            title={a.hint}
-            className={`glass whitespace-nowrap rounded-full border px-3.5 py-1.5 text-xs font-medium transition ${
-              active === a.id
-                ? "border-transparent text-white"
-                : "border-slate-800/80 text-slate-400 hover:text-slate-200"
-            }`}
-            style={
-              active === a.id
-                ? { backgroundColor: "color-mix(in srgb, var(--accent) 26%, transparent)" }
-                : undefined
-            }
-          >
-            {a.label}
-          </button>
-        ))}
+    <div className="space-y-3">
+      {/* Mobile: переключатель фильтров (bottom sheet) */}
+      <button
+        onClick={() => setMobileFilters((v) => !v)}
+        className="md:hidden w-full rounded-xl glass border border-slate-800 px-3 py-2 text-left text-sm text-slate-300"
+      >
+        <span className="font-medium">Фильтры исследования</span>
+        <span className="ml-1 text-slate-500">{mobileFilters ? "▴" : "▾"}</span>
+      </button>
+      {mobileFilters && (
+        <div className="md:hidden -mx-1 rounded-xl p-2">
+          <ResearchFilters />
+        </div>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-[260px_1fr]">
+        {/* Desktop: filter sidebar */}
+        <div className="hidden md:block">
+          <div className="sticky top-[104px]">
+            <ResearchFilters />
+          </div>
+        </div>
+
+        {/* Research surface */}
+        <div className="space-y-4">
+          <section id="map" className="scroll-mt-[150px]">
+            <MapTab key={`${app.scope}-r`} rows={rowsProp} />
+          </section>
+
+          {!app.regionFile && app.scope !== "ALL" ? null : (
+            <>
+              <section id="overview" className="scroll-mt-[150px]">
+                <OverviewTab rows={rowsProp} />
+              </section>
+              <section id="time" className="scroll-mt-[150px]">
+                <TimeTab rows={rowsProp} />
+              </section>
+            </>
+          )}
+        </div>
       </div>
-
-      <section
-        id="overview"
-        ref={(el) => {
-          refs.current.overview = el;
-        }}
-        className="scroll-mt-[150px] space-y-4"
-      >
-        <OverviewTab />
-      </section>
-
-      <section
-        id="time"
-        ref={(el) => {
-          refs.current.time = el;
-        }}
-        className="scroll-mt-[150px] space-y-4"
-      >
-        <TimeTab />
-      </section>
-
-      <section
-        id="map"
-        ref={(el) => {
-          refs.current.map = el;
-        }}
-        className="scroll-mt-[150px] space-y-4"
-      >
-        {app.scope === "ALL" ? (
-          <MapTab />
-        ) : (
-          // MapTab в режиме региона требует загруженного regionFile;
-          // пока он грузится, показываем плашку вместо пустой карточки.
-          <MapTab key={app.scope} />
-        )}
-      </section>
     </div>
   );
 }

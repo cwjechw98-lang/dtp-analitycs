@@ -29,19 +29,24 @@ export function assertSemanticMasksSafe(d: Dictionaries): void {
  * строки региона. Марки записываются в 16-ю и далее позиции как битмаски.
  */
 export interface ResearchFilter {
-  /** индексы суперкатегорий ТС (dicionarios.veh_supers) */
+  /** индексы суперкатегорий ТС */
   vehSupers?: number[];
-  /** индексы типов участников (dictionaries.part_types) */
+  /** индексы типов участников */
   partTypes?: number[];
-  /** индексы групп исхода (dictionaries.outcome_groups) */
+  /** индексы групп исхода */
   outcomes?: number[];
-  /** индексы инфраструктурных фасетов (dictionaries.infra_facets) */
+  /** индексы инфраструктурных фасетов */
   infra?: number[];
   /** индексы тяжести (0 лёгкий, 1 тяжёлый, 2 с погибшими) */
   severities?: number[];
-  /** годы [min, max] включительно, по YM (year*100+month) */
+  /** годы [min, max] включительно */
   yearMin?: number;
   yearMax?: number;
+  /** однозначные поля строки (точные значения) */
+  crashCats?: number[];
+  weathers?: number[];
+  lights?: number[];
+  roads?: number[];
 }
 
 function maskMatch(mask: number, wanted?: number[]): boolean {
@@ -53,13 +58,21 @@ function maskMatch(mask: number, wanted?: number[]): boolean {
   return false;
 }
 
+function inSet(val: number, wanted?: number[]): boolean {
+  return !wanted || wanted.length === 0 || wanted.includes(val);
+}
+
 /** Проверяет, проходит ли строка региона через фильтр. */
 export function rowPasses(r: PointRow, f: ResearchFilter): boolean {
   if (f.vehSupers && f.vehSupers.length && !maskMatch(r[COL.VEH_SUPERS] ?? 0, f.vehSupers)) return false;
   if (f.partTypes && f.partTypes.length && !maskMatch(r[COL.PART_TYPES] ?? 0, f.partTypes)) return false;
   if (f.outcomes && f.outcomes.length && !maskMatch(r[COL.OUTCOMES] ?? 0, f.outcomes)) return false;
   if (f.infra && f.infra.length && !maskMatch(r[COL.INFRA] ?? 0, f.infra)) return false;
-  if (f.severities && f.severities.length && !f.severities.includes(r[COL.SEV])) return false;
+  if (!inSet(r[COL.SEV], f.severities)) return false;
+  if (!inSet(r[COL.CAT], f.crashCats)) return false;
+  if (!inSet(r[COL.WEA], f.weathers)) return false;
+  if (!inSet(r[COL.LIGHT], f.lights)) return false;
+  if (!inSet(r[COL.ROAD], f.roads)) return false;
   if (f.yearMin !== undefined || f.yearMax !== undefined) {
     const year = Math.floor(r[COL.YM] / 100);
     if (f.yearMin !== undefined && year < f.yearMin) return false;

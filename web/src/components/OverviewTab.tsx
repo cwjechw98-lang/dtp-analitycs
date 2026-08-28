@@ -6,10 +6,11 @@ import { deriveRegion } from "../lib/derive";
 import EChart from "./EChart";
 import { Card, StatCard } from "./ui";
 import type * as echarts from "echarts";
+import type { PointRow } from "../lib/types";
 
 const SEV_NAMES = ["Лёгкие", "Тяжёлые", "С погибшими"];
 
-export default function OverviewTab() {
+export default function OverviewTab({ rows }: { rows?: PointRow[] }) {
   const app = useApp();
   const theme = useTheme();
   const isRu = app.scope === "ALL";
@@ -25,8 +26,9 @@ export default function OverviewTab() {
         dateMax: app.meta.date_max,
       };
     }
-    if (!app.regionFile) return null;
-    const d = deriveRegion(app.regionFile.rows, app.dicts);
+    const src = rows ?? app.regionFile?.rows;
+    if (!src) return null;
+    const d = deriveRegion(src, app.dicts);
     return {
       total: d.total,
       overview: d.overview,
@@ -35,7 +37,7 @@ export default function OverviewTab() {
       dateMin: d.dateMin,
       dateMax: d.dateMax,
     };
-  }, [isRu, app.national, app.meta, app.regionFile, app.dicts]);
+  }, [isRu, rows, app.national, app.meta, app.regionFile, app.dicts]);
 
   const years = view?.overview.by_year ?? [];
   const avgPerDay =

@@ -31,10 +31,10 @@ function todOf(hour: number): number {
   return 3;
 }
 
-export default function MapTab() {
+export default function MapTab({ rows }: { rows?: import("../lib/types").PointRow[] }) {
   const app = useApp();
   const isRu = app.scope === "ALL";
-  return isRu ? <HeatMapMode /> : <RegionMapMode />;
+  return isRu ? <HeatMapMode /> : <RegionMapMode rows={rows} />;
 }
 
 /* ============================== Россия: плотность ============================== */
@@ -157,7 +157,7 @@ function HeatMapMode() {
 }
 
 /* ============================== Регион: точки ============================== */
-function RegionMapMode() {
+function RegionMapMode({ rows }: { rows?: import("../lib/types").PointRow[] }) {
   const app = useApp();
   const dicts = app.dicts;
   const el = useRef<HTMLDivElement>(null);
@@ -169,8 +169,8 @@ function RegionMapMode() {
 
   const years = useMemo(
     () =>
-      Array.from(new Set((app.regionFile?.rows ?? []).map((r) => Math.floor(r[2] / 100)))).sort(),
-    [app.regionFile],
+      Array.from(new Set((rows ?? app.regionFile?.rows ?? []).map((r) => Math.floor(r[2] / 100)))).sort(),
+    [rows, app.regionFile],
   );
   const yMinDefault = years[0] ?? 2015;
   const yMaxDefault = years[years.length - 1] ?? new Date().getFullYear();
@@ -253,7 +253,7 @@ function RegionMapMode() {
 
   const filtered = useMemo(
     () =>
-      (app.regionFile?.rows ?? []).filter((r) => {
+      (rows ?? app.regionFile?.rows ?? []).filter((r) => {
         const y = Math.floor(r[2] / 100);
         if (y < effYearFrom || y > effYearTo) return false;
         if (!sevSel[r[5]]) return false;
@@ -262,7 +262,7 @@ function RegionMapMode() {
         if (tod >= 0 && todOf(r[4]) !== tod) return false;
         return true;
       }),
-    [app.regionFile, effYearFrom, effYearTo, sevSel, cat, weather, tod, dicts],
+    [rows, app.regionFile, effYearFrom, effYearTo, sevSel, cat, weather, tod, dicts],
   );
 
   /**

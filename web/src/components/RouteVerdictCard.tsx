@@ -64,13 +64,22 @@ export default function RouteVerdictCard({
       }
       findings={findings.slice(1)}
       action={
-        <ShareButton
-          path="/route"
-          params={shareParams}
-          title={`${from} → ${to}: ${main ? main.text : `${corridor.total} ДТП вдоль маршрута`}`}
-          label="Поделиться"
-          className="lvl-action !border-0 !text-white"
-        />
+        <div className="flex flex-wrap gap-2">
+          <ShareButton
+            path="/route"
+            params={shareParams}
+            title={`${from} → ${to}: ${main ? main.text : `${corridor.total} ДТП вдоль маршрута`}`}
+            label="Поделиться"
+            className="lvl-action !border-0 !text-white"
+          />
+          <button
+            onClick={() => window.print()}
+            className="lvl-action-quiet !border-0 !text-white print:hidden"
+            title="Печать / сохранить в PDF"
+          >
+            Отчёт
+          </button>
+        </div>
       }
     />
   );

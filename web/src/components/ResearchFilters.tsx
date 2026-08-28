@@ -81,8 +81,21 @@ export default function ResearchFilters() {
         </button>
       </div>
 
-      {/* Guided-first: период + география + тяжесть + ТС */}
+      {/* Guided-first: география + период + тяжесть + ТС */}
       <div className="mt-3 grid gap-4 sm:grid-cols-2">
+        <div>
+          <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Регион</div>
+          <select
+            value={app.scope}
+            onChange={(e) => app.setScope(e.target.value)}
+            className="glass w-full rounded-lg px-2 py-1.5 text-xs"
+          >
+            <option value="ALL">Вся Россия</option>
+            {app.meta.regions.map((r) => (
+              <option key={r.slug} value={r.slug}>{r.name}</option>
+            ))}
+          </select>
+        </div>
         <div>
           <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Период</div>
           <div className="flex items-center gap-2 text-xs text-slate-300">

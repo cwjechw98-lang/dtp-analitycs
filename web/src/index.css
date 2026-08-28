@@ -421,3 +421,56 @@ body {
   .sf-flip .sf-top, .sf-flip .sf-bottom { animation: none; }
   .sf-char { transition: none; }
 }
+
+/* ===== Подсказки на карточках-кнопках (desktop: hover, mobile: focus/tap) ===== */
+.needs-tip {
+  position: relative;
+}
+/* подсказка — скрыта, показывается при наведении/фокусе */
+.needs-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%) translateY(4px);
+  width: max-content;
+  max-width: 260px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #e2e8f0;
+  background: #141c30;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 40;
+}
+/* видима при hover (desktop) и при focus/tap (mobile) */
+.needs-tip:hover::after,
+.needs-tip:focus::after,
+.needs-tip:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+/* стрелка у подсказки */
+.needs-tip::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 3px);
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #141c30;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 40;
+}
+.needs-tip:hover::before,
+.needs-tip:focus::before,
+.needs-tip:focus-visible::before {
+  opacity: 1;
+}

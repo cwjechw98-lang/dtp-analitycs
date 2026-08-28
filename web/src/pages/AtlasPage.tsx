@@ -6,7 +6,6 @@ import ResearchFilterBar from "../components/ResearchFilterBar";
 import ResearchSheet from "../components/ResearchSheet";
 import ResearchFindings from "../components/ResearchFindings";
 import ResearchShare from "../components/ResearchShare";
-import CoffeeBlock from "../components/CoffeeBlock";
 import StatBoard from "../components/StatBoard";
 import { useApp } from "../state/AppState";
 import { useResearch } from "../state/ResearchContext";
@@ -54,7 +53,6 @@ export default function AtlasPage() {
           </section>
           <ResearchFindings />
           <ResearchShare />
-          <CoffeeBlock />
           <section id="time" className="scroll-mt-[150px]">
             <TimeTab rows={rowsProp} />
           </section>

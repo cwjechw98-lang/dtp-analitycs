@@ -19,18 +19,63 @@ import type * as echarts from "echarts";
  * Меню блока: Настроить · Переместить · Дублировать · Удалить.
  */
 
-const BLOCK_META: Record<LabBlockType, { label: string; emoji: string; hint: string; defaultSize: LabSize }> = {
-  map: { label: "Карта", emoji: "🗺️", hint: "карта происшествий среза", defaultSize: "L" },
-  years: { label: "Динамика по годам", emoji: "📆", hint: "поток ДТП по годам", defaultSize: "M" },
-  severity: { label: "Тяжесть ДТП", emoji: "📊", hint: "лёгкие / тяжёлые / с погибшими", defaultSize: "M" },
-  brands: { label: "Марки", emoji: "🚗", hint: "топ марок по ДТП", defaultSize: "M" },
-  tod: { label: "Время суток", emoji: "🕐", hint: "профиль по часам", defaultSize: "M" },
-  weather: { label: "Погода", emoji: "🌤️", hint: "доля по погодным условиям", defaultSize: "M" },
-  category: { label: "Типы ДТП", emoji: "🚦", hint: "столкновения, наезды...", defaultSize: "M" },
-  participants: { label: "Участники", emoji: "👤", hint: "водители, пешеходы, мото", defaultSize: "M" },
-  infra: { label: "Инфраструктура", emoji: "🛣️", hint: "переходы, перекрёстки", defaultSize: "M" },
-  findings: { label: "Выводы", emoji: "🔍", hint: "что выделяется в срезе", defaultSize: "S" },
+const BLOCK_META: Record<LabBlockType, { label: string; emoji: string; hint: string; tooltip: string; defaultSize: LabSize }> = {
+  map: { label: "Карта", emoji: "🗺️", hint: "карта происшествий среза", tooltip: "Карта ДТП с кластеризацией: количество и тяжесть происшествий в этом срезе исследования. Точки можно приближать.", defaultSize: "L" },
+  years: { label: "Динамика по годам", emoji: "📆", hint: "поток ДТП по годам", tooltip: "Столбики ДТП по годам: видно, как меняется число происшествий в срезе за период.", defaultSize: "M" },
+  severity: { label: "Тяжесть ДТП", emoji: "📊", hint: "лёгкие / тяжёлые / с погибшими", tooltip: "Круговая диаграмма: доля лёгких, тяжёлых и смертельных ДТП в срезе.", defaultSize: "M" },
+  brands: { label: "Марки", emoji: "🚗", hint: "топ марок по ДТП", tooltip: "Марки автомобилей, которые чаще всего встречаются в ДТП этого среза.", defaultSize: "M" },
+  tod: { label: "Время суток", emoji: "🕐", hint: "профиль по часам", tooltip: "Распределение ДТП по часам: видно, когда аварийность в срезе самая высокая.", defaultSize: "M" },
+  weather: { label: "Погода", emoji: "🌤️", hint: "доля по погодным условиям", tooltip: "Количество ДТП при разных погодных условиях: ясно, дождь, снег, туман.", defaultSize: "M" },
+  category: { label: "Типы ДТП", emoji: "🚦", hint: "столкновения, наезды...", tooltip: "Виды происшествий: столкновения, наезды на пешеходов, опрокидывания и другие.", defaultSize: "M" },
+  participants: { label: "Участники", emoji: "👤", hint: "водители, пешеходы, мото", tooltip: "Кто участвует в ДТП среза: водители, пассажиры, пешеходы, мотоциклисты.", defaultSize: "M" },
+  infra: { label: "Инфраструктура", emoji: "🛣️", hint: "переходы, перекрёстки", tooltip: "Объекты рядом с местами ДТП: переходы, перекрёстки, остановки, мосты.", defaultSize: "M" },
+  findings: { label: "Выводы", emoji: "🔍", hint: "что выделяется в срезе", tooltip: "Автоматические находки: что статистически выделяется в этом срезе исследования.", defaultSize: "S" },
 };
+
+interface Preset {
+  id: string;
+  title: string;
+  desc: string;
+  tip: string;
+  emoji: string;
+  /** набор блоков: [тип, размер] */
+  blocks: [LabBlockType, LabSize][];
+}
+
+const PRESETS: Preset[] = [
+  {
+    id: "safety",
+    title: "Безопасность",
+    desc: "тяжесть, время, выводы",
+    emoji: "🛡️",
+    tip: "Тяжесть, время суток и автоматические выводы: что выделяется по исходам в срезе.",
+    blocks: [["severity", "M"], ["tod", "M"], ["findings", "S"]],
+  },
+  {
+    id: "overview",
+    title: "Обзор аварийности",
+    desc: "динамика, типы, погода",
+    emoji: "📈",
+    tip: "Динамика по годам, типы ДТП и погода: как меняется и что влияет на срез.",
+    blocks: [["years", "M"], ["category", "M"], ["weather", "M"]],
+  },
+  {
+    id: "geo",
+    title: "Карта + марки",
+    desc: "где и кто",
+    emoji: "🗺️",
+    tip: "Карта происшествий и топ марок в срезе: видно где и чьи автомобили.",
+    blocks: [["map", "L"], ["brands", "M"], ["findings", "M"]],
+  },
+  {
+    id: "full",
+    title: "Полный разбор",
+    desc: "все ключевые слои",
+    emoji: "🔬",
+    tip: "Карта, динамика, тяжесть, время и выводы — полная картина среза.",
+    blocks: [["map", "L"], ["years", "M"], ["severity", "M"], ["tod", "M"], ["findings", "M"]],
+  },
+];
 
 const SIZE_CLASS: Record<LabSize, string> = {
   L: "md:col-span-12",
@@ -184,6 +229,14 @@ export default function LabPage() {
     dispatch({ type: "add", block: { id: `${type}-${Date.now()}`, type, size: BLOCK_META[type].defaultSize } });
   };
 
+  /** Применяет пресет: замещает текущую композицию готовым набором блоков. */
+  const applyPreset = (p: Preset) => {
+    dispatch({
+      type: "set",
+      blocks: p.blocks.map(([type, size], i) => ({ id: `${type}-${Date.now()}-${i}`, type, size })),
+    });
+  };
+
   const share = async () => {
     try {
       if (navigator.share) await navigator.share({ title: "ДТП Аналитика — моё исследование", url: location.href });
@@ -203,6 +256,27 @@ export default function LabPage() {
         </div>
       </div>
 
+      {/* Готовые пресеты дашбордов */}
+      <div className="glass rounded-2xl border border-slate-800/80 p-4">
+        <div className="mb-2 flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-slate-200">Готовые сочетания</h2>
+          <span className="text-[11px] text-slate-500">один клик — разложит блоки за тебя</span>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {PRESETS.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => applyPreset(p)}
+              data-tip={p.tip}
+              className="needs-tip rounded-xl border border-slate-800 p-3 text-left transition hover:border-slate-600 hover:bg-slate-800/40"
+            >
+              <div className="text-sm font-medium text-slate-200">{p.emoji} {p.title}</div>
+              <div className="mt-0.5 text-[11px] text-slate-500">{p.desc}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Пустой экран: что добавить */}
       {state.blocks.length === 0 && (
         <div className="glass rounded-2xl border border-slate-800/80 p-6">
@@ -210,7 +284,13 @@ export default function LabPage() {
           <p className="mt-1 text-xs text-slate-500">Выбери блоки — все они питаются одним срезом (фильтры сверху). Меняешь фильтр — вся лаборатория перестраивается.</p>
           <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {(Object.keys(BLOCK_META) as LabBlockType[]).map((t) => (
-              <button key={t} onClick={() => addBlock(t)} className="rounded-xl border border-slate-800 p-3 text-left transition hover:border-slate-600 hover:bg-slate-800/40">
+              <button
+                key={t}
+                onClick={() => addBlock(t)}
+                data-tip={BLOCK_META[t].tooltip}
+                aria-label={`${BLOCK_META[t].label} — ${BLOCK_META[t].tooltip}`}
+                className="needs-tip rounded-xl border border-slate-800 p-3 text-left transition hover:border-slate-600 hover:bg-slate-800/40"
+              >
                 <div className="text-sm font-medium text-slate-200">{BLOCK_META[t].emoji} {BLOCK_META[t].label}</div>
                 <div className="mt-0.5 text-[11px] text-slate-500">{BLOCK_META[t].hint}</div>
               </button>

@@ -3,6 +3,8 @@ import { useApp } from "../state/AppState";
 import { useResearch } from "../state/ResearchContext";
 import { runResearchFindings } from "../lib/researchFindings";
 import { Section } from "./ui";
+import DonatePlate from "./DonatePlate";
+import SupportModal from "./SupportModal";
 
 /**
  * Share / Report (Этап G). Кнопка «Поделиться» сохраняет всё текущее
@@ -14,6 +16,7 @@ export default function ResearchShare() {
   const app = useApp();
   const { filteredRows } = useResearch();
   const [reportOpen, setReportOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
 
   const find = useMemo(() => {
     if (app.scope === "ALL" || !app.regionFile) return null;
@@ -67,6 +70,9 @@ export default function ResearchShare() {
         </button>
       </div>
 
+      {/* Монетизационная плашечка: появляется после «зрелого» пребывания (польза уже получена) */}
+      <DonatePlate onSupport={() => setSupportOpen(true)} />
+
       {reportOpen && (
         <div className="mt-4 rounded-xl border border-slate-800 bg-slate-900/40 p-4 print:block">
           <h2 className="text-base font-semibold text-white">ДТП Аналитика — исследование</h2>
@@ -91,6 +97,7 @@ export default function ResearchShare() {
           </p>
         </div>
       )}
+      <SupportModal open={supportOpen} onClose={() => setSupportOpen(false)} />
     </Section>
   );
 }

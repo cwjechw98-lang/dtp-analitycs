@@ -312,6 +312,7 @@ body {
 .sf-digits {
   display: inline-flex;
   gap: 2px;
+  contain: content; /* изолирует layout/paint — анимации цифр не триггерят reflow ряда */
 }
 .sf-char {
   position: relative;
@@ -390,7 +391,7 @@ body {
   backface-visibility: hidden;
   transform: rotateX(0deg);
 }
-/* тонкий блеск на табло */
+/* тонкий блеск на табло + reduced-motion (для тех, кто просит меньше анимации) */
 .sf-digits {
   position: relative;
 }
@@ -400,4 +401,8 @@ body {
   inset: 0;
   pointer-events: none;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 40%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sf-flip .sf-top, .sf-flip .sf-bottom { animation: none; }
+  .sf-char { transition: none; }
 }

@@ -23,6 +23,7 @@ export type LabAction =
   | { type: "add"; block: LabBlock }
   | { type: "remove"; id: string }
   | { type: "move"; id: string; dir: -1 | 1 }
+  | { type: "reorder"; from: number; to: number }
   | { type: "span"; id: string; span: LabBlock["span"] }
   | { type: "set"; blocks: LabBlock[] }
   | { type: "reset" };
@@ -46,6 +47,13 @@ function reducer(s: LabState, a: LabAction): LabState {
       if (i < 0 || j < 0 || j >= s.blocks.length) return s;
       const arr = [...s.blocks];
       [arr[i], arr[j]] = [arr[j], arr[i]];
+      return { blocks: arr };
+    }
+    case "reorder": {
+      if (a.from < 0 || a.from >= s.blocks.length || a.to < 0 || a.to >= s.blocks.length) return s;
+      const arr = [...s.blocks];
+      const [moved] = arr.splice(a.from, 1);
+      arr.splice(a.to, 0, moved);
       return { blocks: arr };
     }
     case "span":

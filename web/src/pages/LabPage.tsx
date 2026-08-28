@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useApp } from "../state/AppState";
 import { useResearch } from "../state/ResearchContext";
 import { useLab, type LabBlock, type LabBlockType } from "../state/LabContext";
@@ -64,7 +64,7 @@ function MiniChart({ title, kind }: { title: string; kind: "severity" | "time" |
   return <EChart option={option} height={220} />;
 }
 
-function BlockView({ block }: { block: LabBlock }) {
+function BlockView({ block, index, onDragStart, onDrop }: { block: LabBlock; index: number; onDragStart: (i: number) => void; onDrop: (i: number) => void }) {
   const { dispatch } = useLab();
   const app = useApp();
   const { filteredRows } = useResearch();
@@ -74,7 +74,14 @@ function BlockView({ block }: { block: LabBlock }) {
     [app.scope, app.regionFile, filteredRows]
   );
   return (
-    <Card className={`min-w-0 ${block.span === 12 ? "col-span-12" : block.span === 6 ? "sm:col-span-6" : "sm:col-span-3"}`}>
+    <div
+      className={block.span === 12 ? "col-span-12" : block.span === 6 ? "sm:col-span-6" : "sm:col-span-3"}
+      draggable
+      onDragStart={() => onDragStart(index)}
+      onDragOver={(e: React.DragEvent) => e.preventDefault()}
+      onDrop={() => onDrop(index)}
+    >
+    <Card className="min-w-0 h-full">
       <div className="mb-2 flex items-center justify-between gap-2">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">{meta.emoji} {meta.label}</h3>
         <div className="flex items-center gap-1">
@@ -99,6 +106,7 @@ function BlockView({ block }: { block: LabBlock }) {
       {block.type === "category" && <MiniChart title="Категории ДТП" kind="category" />}
       {block.type === "stats" && <StatsBlock />}
     </Card>
+    </div>
   );
 }
 
@@ -123,6 +131,7 @@ function StatsBlock() {
 
 export default function LabPage() {
   const { state, dispatch } = useLab();
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
   const addBlock = (type: LabBlockType) => {
     dispatch({ type: "add", block: { id: `${type}-${Date.now()}`, type, span: 6 } });
   };
@@ -160,7 +169,18 @@ export default function LabPage() {
           </Section>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
-            {state.blocks.map((b) => <BlockView key={b.id} block={b} />)}
+            {state.blocks.map((b, i) => (
+              <BlockView
+                key={b.id}
+                block={b}
+                index={i}
+                onDragStart={(i) => setDragFrom(i)}
+                onDrop={(i) => {
+                  if (dragFrom !== null && dragFrom !== i) dispatch({ type: "reorder", from: dragFrom, to: i });
+                  setDragFrom(null);
+                }}
+              />
+            ))}
           </div>
         </div>
       </div>

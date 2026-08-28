@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://dtp-analytics.pages.dev/sitemap.xml

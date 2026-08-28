@@ -53,14 +53,17 @@ export default function SupportModal({ open, onClose }: { open: boolean; onClose
               это время и деньги за хостинг и домен. Спасибо за поддержку.
             </p>
 
-            {/* Кнопка ЮMoney — быстрый платёж */}
+            {/* Кнопка ЮMoney — быстрый платёж. Адаптивная: max 330px, на узких — 100%. */}
             <div className="mt-4 flex justify-center">
-              <div className="overflow-hidden rounded-xl">
-                {!loaded && <div className="py-3 text-xs text-slate-500">Загружаем кнопку Яндекс Кошелька…</div>}
+              <div className="w-full max-w-[330px]">
+                {!loaded ? (
+                  <div className="py-4 text-center text-xs text-slate-500">Загружаем кнопку Яндекс Кошелька…</div>
+                ) : null}
                 <iframe
                   src={YOOMONEY_IFRAME}
                   width="330"
                   height="50"
+                  style={{ width: "100%", maxWidth: 330, height: 50, border: 0, display: "block", overflow: "hidden" }}
                   frameBorder="0"
                   scrolling="no"
                   allowTransparency

@@ -290,3 +290,13 @@ body {
   height: 3px;
   background: linear-gradient(90deg, var(--accent), transparent 70%);
 }
+
+/* Печать отчёта (Этап G/J): при печати карточка отчёта читабельна, лишнее скрыто */
+@media print {
+  body { background: #fff; color: #0f172a; }
+  .no-print { display: none !important; }
+  .print\:block { display: block !important; }
+  /* убираем фоновые декорации и тёмные панели при печати */
+  .glass, [class*="bg-slate"], [class*="bg-\["] { background: #fff !important; color: #0f172a !important; }
+  .leaflet-container { display: none !important; }
+}

@@ -727,6 +727,13 @@ def main() -> int:
         "part_types": semantic.canonical_names("participant"),
         "outcome_groups": semantic.canonical_names("outcome"),
         "infra_facets": semantic.canonical_names("infrastructure"),
+        # raw category -> supercategory, для class-aware сравнения Fleet (F2)
+        "cat_to_super": {
+            raw: row[0]
+            for raw, row in json.loads(
+                (pathlib.Path(__file__).resolve().parent / "semantic" / "mapping_vehicle.json").read_text(encoding="utf-8")
+            )["mapping"].items()
+        },
     })
 
     total = acc.total

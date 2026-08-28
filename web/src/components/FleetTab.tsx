@@ -77,6 +77,8 @@ export default function FleetTab() {
   }, [selected, writeUrl]);
   const [sortKey, setSortKey] = useState<SortKey>("total");
   const [showAll, setShowAll] = useState(false);
+  // F2: сравнение только в рамках одного класса ТС (не сравниваем КАМАЗ с Toyota).
+  const [brandClass, setBrandClass] = useState<string>("passenger_car");
 
   useEffect(() => {
     let alive = true;
@@ -115,6 +117,16 @@ export default function FleetTab() {
     }
     return c + v > 0 ? c / (c + v) : 0.5;
   }, [allBrands, nationalRows]);
+
+  // F2: фильтр марок по доминирующему классу ТС (не сравниваем КАМАЗ с Toyota).
+  const classBrands = useMemo(() => {
+    if (brandClass === "all" || !brandsFile) return allBrands;
+    const map = app.dicts.cat_to_super ?? {};
+    return allBrands.filter((b) => {
+      const cat = brandsFile.brands[b.brand]?.cat;
+      return cat ? map[cat] === brandClass : false;
+    });
+  }, [allBrands, brandClass, brandsFile, app.dicts]);
 
   const toggleBrand = (name: string) => {
     setSelected((s) =>
@@ -187,14 +199,30 @@ export default function FleetTab() {
             title="Рейтинг марок"
             lead={`Базовая доля виновников по автопарку — ${Math.round(baselineShare * 100)}%. Марка выше неё чаще оказывается виновной стороной.`}
             aside={
-              <div className="flex gap-1 rounded-lg bg-slate-800/70 p-1">
-                <button onClick={() => setShowAll(false)} className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${!showAll ? "text-white" : "text-slate-400 hover:text-slate-200"}`} style={!showAll ? { backgroundColor: "var(--accent)" } : undefined}>Топ-25</button>
-                <button onClick={() => setShowAll(true)} className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${showAll ? "text-white" : "text-slate-400 hover:text-slate-200"}`} style={showAll ? { backgroundColor: "var(--accent)" } : undefined}>Все марки</button>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex gap-1 rounded-lg bg-slate-800/70 p-1">
+                  <button onClick={() => setShowAll(false)} className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${!showAll ? "text-white" : "text-slate-400 hover:text-slate-200"}`} style={!showAll ? { backgroundColor: "var(--accent)" } : undefined}>Топ-25</button>
+                  <button onClick={() => setShowAll(true)} className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${showAll ? "text-white" : "text-slate-400 hover:text-slate-200"}`} style={showAll ? { backgroundColor: "var(--accent)" } : undefined}>Все марки</button>
+                </div>
+                <label className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                  Класс ТС
+                  <select
+                    value={brandClass}
+                    onChange={(e) => setBrandClass(e.target.value)}
+                    className="rounded-md bg-slate-800/80 px-1.5 py-1 text-[11px] text-slate-200"
+                  >
+                    <option value="passenger_car">Легковые</option>
+                    <option value="truck">Грузовые</option>
+                    <option value="bus">Автобусы</option>
+                    <option value="motorcycle">Мото</option>
+                    <option value="all">Все классы</option>
+                  </select>
+                </label>
               </div>
             }
           >
             <RankingTable
-              rows={allBrands}
+              rows={classBrands}
               showAll={showAll}
               sortKey={sortKey}
               setSortKey={setSortKey}

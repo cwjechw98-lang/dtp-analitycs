@@ -40,6 +40,8 @@ export interface Dictionaries {
   part_types: string[];
   outcome_groups: string[];
   infra_facets: string[];
+  /** raw vehicle category -> суперкатегория (для class-aware сравнения Fleet) */
+  cat_to_super?: Record<string, string>;
 }
 
 export interface YearRow { year: number; accidents: number; dead: number; injured: number }

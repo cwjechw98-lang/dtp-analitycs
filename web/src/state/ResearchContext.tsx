@@ -117,6 +117,9 @@ export function ResearchProvider({ children }: { children: ReactNode }) {
     if (from.infra) dispatch({ type: "infra", value: from.infra });
     if (from.severities) dispatch({ type: "severities", value: from.severities });
     if (from.yearMin !== undefined) dispatch({ type: "years", min: from.yearMin ?? null, max: from.yearMax ?? null });
+    // region (r): восстановить scope исследования
+    const r = new URL(window.location.href).searchParams.get("r");
+    if (r) app.setScope(r);
     urlInit.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

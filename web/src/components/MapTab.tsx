@@ -254,6 +254,10 @@ function RegionMapMode({ rows }: { rows?: import("../lib/types").PointRow[] }) {
   const filtered = useMemo(
     () =>
       (rows ?? app.regionFile?.rows ?? []).filter((r) => {
+        // Если rows переданы из Atlas Research — они уже отфильтрованы по всем
+        // research-критериям, поэтому собственные фильтры карты НЕ применяем
+        // (иначе двойная фильтрация давала пустую карту / расхождение с графиками).
+        if (rows) return true;
         const y = Math.floor(r[2] / 100);
         if (y < effYearFrom || y > effYearTo) return false;
         if (!sevSel[r[5]]) return false;

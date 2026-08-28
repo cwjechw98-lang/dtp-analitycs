@@ -289,6 +289,7 @@ function BlockView({ block, index, onDragStart, onDrop }: { block: LabBlock; ind
 }
 
 export default function LabPage() {
+  const app = useApp();
   const { state, dispatch } = useLab();
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -313,6 +314,39 @@ export default function LabPage() {
     } catch (e) { if ((e as Error)?.name === "AbortError") return; }
   };
 
+  // данные для отчёта: срез всегда есть (national или region)
+  const ctx = useSlice();
+  const regionName = app.scope === "ALL" ? "Вся Россия" : app.meta.regions.find((r) => r.slug === app.scope)?.name ?? "Вся Россия";
+  const period = `${app.meta.date_min?.slice(0, 4) ?? "2015"}–${app.meta.date_max?.slice(0, 4) ?? "2026"}`;
+  const reportSlice = {
+    region: regionName,
+    period,
+    total: ctx ? ctx.d.total : app.meta.total_accidents,
+    dead: ctx ? ctx.d.dead : app.meta.totals.dead,
+    injured: ctx ? ctx.d.injured : app.meta.totals.injured,
+    blocks: state.blocks,
+  };
+
+  const downloadReport = () => {
+    const lines = [
+      "ДТП Аналитика — моё исследование",
+      `${regionName} · ${period}`,
+      `ДТП: ${reportSlice.total.toLocaleString("ru-RU")} · погибли: ${reportSlice.dead.toLocaleString("ru-RU")} · ранены: ${reportSlice.injured.toLocaleString("ru-RU")}`,
+      "",
+      "Блоки: " + state.blocks.map((b) => `${BLOCK_META[b.type].label} (${b.size})`).join(", "),
+      "",
+      `Ссылка: ${location.href}`,
+      `Источник: открытые данные ГИБДД (dtp-stat.ru) · ${new Date().toLocaleDateString("ru-RU")}`,
+    ].join("\n");
+    const blob = new Blob([lines], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "dtp-issledovanie.txt";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-3">
       {/* Строка состояния — единый срез исследования */}
@@ -321,7 +355,15 @@ export default function LabPage() {
         <div className="flex items-center gap-2">
           <button onClick={() => dispatch({ type: "reset" })} className="rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-slate-400 hover:text-slate-200">Очистить</button>
           <button onClick={share} className="rounded-lg bg-orange-500 px-3 py-1 text-xs font-medium text-white hover:bg-orange-600">Поделиться исследованием</button>
-          <button onClick={() => setReportOpen((v) => !v)} className="rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-slate-300 hover:text-white">Создать отчёт</button>
+          <button
+            onClick={() => {
+              setReportOpen(true);
+              setTimeout(() => document.getElementById("lab-report")?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+            }}
+            className="rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-slate-300 hover:text-white"
+          >
+            Создать отчёт
+          </button>
         </div>
       </div>
 
@@ -377,11 +419,56 @@ export default function LabPage() {
         </div>
       )}
 
-      {/* Отчёт (print-view) */}
+      {/* Отчёт: настоящее содержимое + действия (печать/PDF, скачать текст) */}
       {reportOpen && (
-        <div className="glass rounded-2xl border border-slate-800/80 p-5 print:block">
-          <h2 className="text-base font-semibold text-white">Моё исследование</h2>
-          <p className="mt-1 text-xs text-slate-500">Собранные блоки · {new Date().toLocaleDateString("ru-RU")} · кнопка «Отчёт» открывает печать (браузер → PDF)</p>
+        <div className="glass rounded-2xl border border-slate-800/80 p-5 print:block" id="lab-report">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-white">Моё исследование</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                {reportSlice.region} · {reportSlice.period} · {reportSlice.blocks.length} блоков · {new Date().toLocaleDateString("ru-RU")}
+              </p>
+            </div>
+            <button
+              onClick={() => setReportOpen(false)}
+              className="rounded-md px-2 py-1 text-slate-500 transition hover:text-slate-200 no-print"
+              aria-label="Закрыть отчёт"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="mt-3 grid grid-cols-3 gap-3">
+            <div className="rounded-lg bg-slate-800/60 p-3"><div className="text-lg font-bold text-white">{reportSlice.total.toLocaleString("ru-RU")}</div><div className="text-[10px] text-slate-500">ДТП в срезе</div></div>
+            <div className="rounded-lg bg-slate-800/60 p-3"><div className="text-lg font-bold text-red-400">{reportSlice.dead.toLocaleString("ru-RU")}</div><div className="text-[10px] text-slate-500">погибли</div></div>
+            <div className="rounded-lg bg-slate-800/60 p-3"><div className="text-lg font-bold text-orange-400">{reportSlice.injured.toLocaleString("ru-RU")}</div><div className="text-[10px] text-slate-500">ранены</div></div>
+          </div>
+
+          <div className="mt-4">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 no-print">Собранные блоки</div>
+            <ul className="mt-1.5 flex flex-wrap gap-1.5">
+              {state.blocks.map((b) => (
+                <li key={b.id} className="rounded-full border border-slate-700/70 bg-slate-800/60 px-2.5 py-1 text-xs text-slate-300">
+                  {BLOCK_META[b.type].emoji} {BLOCK_META[b.type].label} · {b.size}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2 no-print">
+            <button
+              onClick={() => window.print()}
+              className="rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-orange-600"
+            >
+              🖨 Печать / Сохранить PDF
+            </button>
+            <button
+              onClick={downloadReport}
+              className="rounded-lg border border-slate-700 bg-slate-800/70 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-slate-500"
+            >
+              ⬇ Скачать текст
+            </button>
+          </div>
         </div>
       )}
 

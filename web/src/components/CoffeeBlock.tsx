@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { nf } from "../lib/format";
+import SupportModal from "./SupportModal";
 
 /**
  * Благодарность автору (контракт §8, этап 5).
@@ -26,6 +27,7 @@ const SUPPORT_URL = import.meta.env.VITE_SUPPORT_URL ?? "";
 
 export default function CoffeeBlock({ accidentsScanned }: { accidentsScanned?: number }) {
   const [support, setSupport] = useState<Support | null>(null);
+  const [modal, setModal] = useState(false);
 
   useEffect(() => {
     const base = import.meta.env.BASE_URL;
@@ -81,20 +83,33 @@ export default function CoffeeBlock({ accidentsScanned }: { accidentsScanned?: n
           )}
         </div>
 
-        <a
-          href={SUPPORT_URL}
-          target="_blank"
-          rel="noreferrer"
-          onClick={() => {
-            // Отдельное событие: конверсия в клик — главная метрика этапа 5.
-            import("../lib/analytics").then((m) => m.trackTip());
-          }}
-          className="glow-ring shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition"
-          style={{ backgroundColor: "var(--accent)" }}
-        >
-          ☕ На кофе автору
-        </a>
+        {SUPPORT_URL ? (
+          <a
+            href={SUPPORT_URL}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => {
+              import("../lib/analytics").then((m) => m.trackTip());
+            }}
+            className="glow-ring shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition"
+            style={{ backgroundColor: "var(--accent)" }}
+          >
+            ☕ На кофе автору
+          </a>
+        ) : (
+          <button
+            onClick={() => {
+              setModal(true);
+              import("../lib/analytics").then((m) => m.trackTip());
+            }}
+            className="glow-ring shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition"
+            style={{ backgroundColor: "var(--accent)" }}
+          >
+            ☕ Поддержать проект
+          </button>
+        )}
       </div>
+      <SupportModal open={modal} onClose={() => setModal(false)} />
     </div>
   );
 }

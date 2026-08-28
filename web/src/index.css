@@ -300,3 +300,104 @@ body {
   .glass, [class*="bg-slate"], [class*="bg-\["] { background: #fff !important; color: #0f172a !important; }
   .leaflet-container { display: none !important; }
 }
+
+/* ===== Split-flap табло (аэропортное) — для статистики исследований ===== */
+.sf-board {
+  --sf-accent: #f59e0b;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+  user-select: none;
+}
+.sf-digits {
+  display: inline-flex;
+  gap: 2px;
+}
+.sf-char {
+  position: relative;
+  display: inline-block;
+  min-width: 0.7em;
+  height: 1.15em;
+  overflow: hidden;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 2.4rem;
+  line-height: 1;
+  color: var(--sf-accent);
+  background: linear-gradient(180deg, #171d2e 0%, #0d1220 55%, #131b30 100%);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 4px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.sf-top, .sf-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 50%;
+  overflow: hidden;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sf-top {
+  top: 0;
+  align-items: flex-start;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.55);
+  /* затемнение верхней половины — как у механических табло */
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0));
+}
+.sf-bottom {
+  bottom: 0;
+  align-items: flex-end;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0));
+}
+.sf-sep {
+  display: inline-block;
+  min-width: 0.12em;
+  height: 1.15em;
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: rgba(148, 163, 184, 0.35);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+.sf-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted, #64748b);
+}
+
+/* анимация перелистывания: верхняя пластинка падает, нижняя поднимается */
+@keyframes sfFlipTop {
+  from { transform: rotateX(0deg); }
+  to { transform: rotateX(-90deg); }
+}
+@keyframes sfFlipBottom {
+  from { transform: rotateX(90deg); }
+  to { transform: rotateX(0deg); }
+}
+.sf-flip .sf-top {
+  animation: sfFlipTop 0.26s ease-in;
+  transform-origin: bottom;
+  backface-visibility: hidden;
+}
+.sf-flip .sf-bottom {
+  animation: sfFlipBottom 0.26s ease-out;
+  transform-origin: top;
+  backface-visibility: hidden;
+  transform: rotateX(0deg);
+}
+/* тонкий блеск на табло */
+.sf-digits {
+  position: relative;
+}
+.sf-digits::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 40%);
+}

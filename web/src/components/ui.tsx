@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import type { ReactNode } from "react";
 import { nf, useCountUp } from "../lib/format";
+import SplitFlap from "./SplitFlap";
 
 export const fadeUp = {
   hidden: { opacity: 0, y: 18 },
@@ -62,12 +63,15 @@ export function StatCard({
   hint,
   tone = "default",
   delay = 0,
+  variant = "normal",
 }: {
   label: string;
   value: number | string;
   hint?: string;
   tone?: keyof typeof TONES;
   delay?: number;
+  /** "flap" — самолётное табло вместо простого числа */
+  variant?: "normal" | "flap";
 }) {
   const animated = typeof value === "number";
   const counted = useCountUp(animated ? (value as number) : 0);
@@ -82,9 +86,15 @@ export function StatCard({
     >
       <div className={`pointer-events-none absolute -right-6 -top-8 h-20 w-20 rounded-full bg-gradient-to-b from-white/[0.07] to-transparent blur-xl`} />
       <div className="text-[11px] font-medium uppercase tracking-widest text-slate-500">{label}</div>
-      <div className={`mt-1 text-2xl font-extrabold tabular-nums tracking-tight ${t.text} ${t.glow}`}>
-        {animated ? nf.format(counted as number) : value}
-      </div>
+      {variant === "flap" && typeof value === "number" ? (
+        <div className="mt-1.5 overflow-hidden">
+          <SplitFlap value={value} accent={t.text.includes("text-red") ? "#ef4444" : t.text.includes("text-orange") ? "#f59e0b" : undefined} />
+        </div>
+      ) : (
+        <div className={`mt-1 text-2xl font-extrabold tabular-nums tracking-tight ${t.text} ${t.glow}`}>
+          {animated ? nf.format(counted as number) : value}
+        </div>
+      )}
       {hint && <div className="mt-0.5 text-xs text-slate-500">{hint}</div>}
     </motion.div>
   );

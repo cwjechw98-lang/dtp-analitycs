@@ -151,9 +151,9 @@ export default function OverviewTab({ rows }: { rows?: PointRow[] }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <StatCard label="Всего ДТП" value={view.total ?? years.reduce((a, y) => a + y.accidents, 0)} hint={`${view.dateMin ?? ""} — ${view.dateMax ?? ""}`} />
-        <StatCard label="Погибли" value={view.dead} tone="danger" />
-        <StatCard label="Ранены" value={view.injured} tone="warn" />
+        <StatCard label="Всего ДТП" value={view.total ?? years.reduce((a, y) => a + y.accidents, 0)} hint={`${view.dateMin ?? ""} — ${view.dateMax ?? ""}`} variant="flap" />
+        <StatCard label="Погибли" value={view.dead} tone="danger" variant="flap" />
+        <StatCard label="Ранены" value={view.injured} tone="warn" variant="flap" />
         <StatCard label="В среднем в день" value={avgPerDay} hint="за весь период" />
         <StatCard label={isRu ? "Регионов в данных" : "Выбранный регион"} value={isRu ? app.meta.regions_processed : regionNameOf(app)} tone="good" />
       </div>

@@ -22,7 +22,7 @@ interface Support {
   updated: string;
 }
 
-const TIPS_URL = import.meta.env.VITE_TIPS_URL ?? "";
+const SUPPORT_URL = import.meta.env.VITE_SUPPORT_URL ?? "";
 
 export default function CoffeeBlock({ accidentsScanned }: { accidentsScanned?: number }) {
   const [support, setSupport] = useState<Support | null>(null);
@@ -43,7 +43,7 @@ export default function CoffeeBlock({ accidentsScanned }: { accidentsScanned?: n
       });
   }, []);
 
-  if (!TIPS_URL) return null;
+  if (!SUPPORT_URL) return null;
 
   const pct = support ? Math.min(100, Math.round((support.raised / support.goal) * 100)) : 0;
 
@@ -82,7 +82,7 @@ export default function CoffeeBlock({ accidentsScanned }: { accidentsScanned?: n
         </div>
 
         <a
-          href={TIPS_URL}
+          href={SUPPORT_URL}
           target="_blank"
           rel="noreferrer"
           onClick={() => {

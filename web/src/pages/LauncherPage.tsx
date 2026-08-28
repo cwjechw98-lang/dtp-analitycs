@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import VerdictCard from "../components/VerdictCard";
 import { nf } from "../lib/format";
 import { brandVsFleet, fleetBaseline, isRealBrand } from "../lib/findings";
+import { buildFacts, pickFact } from "../lib/researchFacts";
+import { trackFactOpen, trackLauncherClick } from "../lib/analytics";
 import type { BrandsFile } from "../lib/types";
 import { useApp } from "../state/AppState";
 import { useProfile } from "../state/ProfileContext";
@@ -23,14 +25,20 @@ import { useProfile } from "../state/ProfileContext";
 
 const INTENTS = [
   {
-    to: "/fleet",
-    title: "Сравнить машины",
-    hint: "Чем одна марка отличается от другой в 1,6 млн записей",
+    to: "/atlas",
+    title: "Исследовать карту",
+    hint: "Кто, где и при каких условиях чаще попадает в ДТП",
+    primary: true,
   },
   {
     to: "/route",
     title: "Проверить маршрут",
     hint: "Что происходило на дороге, по которой поедешь",
+  },
+  {
+    to: "/fleet",
+    title: "Сравнить машины",
+    hint: "Чем одна марка отличается от другой в 1,6 млн записей",
   },
   {
     to: "/me",
@@ -97,6 +105,9 @@ export default function LauncherPage() {
     return { name, findings: [pick], isMine: Boolean(mine) };
   }, [brandsFile, profile.brand]);
 
+  // Проверенный факт из пула (детерминированный, не LLM) — из national, грузится сразу.
+  const fact = useMemo(() => pickFact(buildFacts(app.national, app.meta)), [app.national, app.meta]);
+
   return (
     <div className="space-y-7">
       <section>
@@ -116,6 +127,7 @@ export default function LauncherPage() {
           <Link
             key={i.to}
             to={i.to}
+            onClick={() => trackLauncherClick(i.to)}
             className="flex items-center justify-between gap-4 rounded-xl border px-4 py-3.5 transition"
             style={{ borderColor: "var(--border)", background: "var(--panel-b)" }}
           >
@@ -134,6 +146,30 @@ export default function LauncherPage() {
           </Link>
         ))}
       </section>
+
+      {fact && (
+        <section>
+          <h2
+            className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em]"
+            style={{ color: "var(--muted)" }}
+          >
+            {fact.category} · {fact.period}
+          </h2>
+          <Link to={fact.deepLink} onClick={() => trackFactOpen(fact.id)} className="block">
+            <VerdictCard
+              subject={<span className="text-lg font-extrabold tracking-tight" style={{ color: "var(--heading)" }}>{fact.title}</span>}
+              verdict={`В данных ГИБДД: ${fact.text}`}
+              sampleNote={
+                <>
+                  Выборка: <span className="num">{nf.format(fact.n)}</span> · период {fact.period}
+                </>
+              }
+              findings={[]}
+              footnote="Открыть исследование →"
+            />
+          </Link>
+        </section>
+      )}
 
       {daily && (
         <section>

@@ -35,8 +35,18 @@ export function trackView(section: string) {
 }
 
 /** Нажатие «поделиться» — ключевая метрика гипотезы. */
-export function trackShare(kind: "route" | "fleet" | "me") {
+export function trackShare(kind: "route" | "fleet" | "me" | "atlas") {
   send("share", { kind });
+}
+
+/** Клик по проверенному факту на главной. */
+export function trackFactOpen(factId: string) {
+  send("fact_open", { id: factId });
+}
+
+/** Клик по entry-point на лаунчере. */
+export function trackLauncherClick(dest: string) {
+  send("launcher_click", { dest });
 }
 
 /** Клик по кнопке благодарности — главная метрика этапа 5. */

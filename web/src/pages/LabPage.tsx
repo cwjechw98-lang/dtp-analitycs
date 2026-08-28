@@ -77,6 +77,25 @@ const PRESETS: Preset[] = [
   },
 ];
 
+/**
+ * Подсчёт строк среза по semantic-битмаске.
+ * Возвращает массив [имя, количество] для тех бит, которые есть в словаре.
+ */
+function maskCounts(rows: number[][], col: number, dict: string[]): [string, number][] {
+  const counts = new Array(dict.length).fill(0);
+  for (const r of rows) {
+    const mask = r[col] ?? 0;
+    if (!mask) continue;
+    for (let b = 0; b < dict.length; b++) {
+      if (mask & (1 << b)) counts[b]++;
+    }
+  }
+  return dict
+    .map((name, i) => [name, counts[i]] as [string, number])
+    .filter(([, c]) => c > 0)
+    .sort((a, b) => b[1] - a[1]);
+}
+
 const SIZE_CLASS: Record<LabSize, string> = {
   L: "md:col-span-12",
   M: "md:col-span-6",
@@ -160,17 +179,44 @@ function BlockBody({ block }: { block: LabBlock }) {
     return <EChart option={option} height={200} />;
   }
   if (block.type === "participants") {
+    // типы участников из semantic-битмаски PART_TYPES (COL.PART_TYPES = 17)
+    const data = maskCounts(ctx.slice, 17, app.dicts.part_types);
+    if (!data.length) return <div className="py-6 text-center text-xs text-slate-400">Нет данных об участниках в срезе</div>;
     const option: echarts.EChartsOption = {
       tooltip: { trigger: "item" },
-      series: [{ type: "pie", radius: ["42%", "70%"], center: ["50%", "46%"], label: { show: false }, data: [d.total] }],
+      series: [{ type: "pie", radius: ["42%", "70%"], center: ["50%", "46%"], label: { show: false },
+        data: data.slice(0, 8).map(([name, v]) => ({ name, value: v })) }],
     };
-    return <div className="py-6 text-center text-sm text-slate-300">Участников в срезе: <b className="text-orange-300">{d.total.toLocaleString("ru-RU")}</b></div>;
+    return <EChart option={option} height={200} />;
   }
   if (block.type === "infra") {
-    return <div className="py-6 text-center text-xs text-slate-400">Инфраструктурные объекты доступны в расширенном режиме</div>;
+    // инфраструктурные фасеты из битмаски INFRA (COL.INFRA = 19)
+    const data = maskCounts(ctx.slice, 19, app.dicts.infra_facets);
+    if (!data.length) return <div className="py-6 text-center text-xs text-slate-400">Нет данных об инфраструктуре в срезе</div>;
+    const option: echarts.EChartsOption = {
+      tooltip: { trigger: "axis" },
+      xAxis: { type: "category", data: data.slice(0, 8).map(([n]) => n), axisLabel: { color: "#94a3b8", rotate: 25, fontSize: 9 } },
+      yAxis: { type: "value", splitLine: { lineStyle: { color: "#1e293b" } } },
+      series: [{ type: "bar", data: data.slice(0, 8).map(([, v]) => v), itemStyle: { color: "#22d3ee" } }],
+    };
+    return <EChart option={option} height={200} />;
   }
   if (block.type === "brands") {
-    return <div className="py-6 text-center text-sm text-slate-300">Марки в срезе: <b className="text-orange-300">{app.meta.regions_processed} регионов</b></div>;
+    // первая марка ТС из строки (COL.BRAND = 11) — топ марок среза
+    const byBrand = new Map<number, number>();
+    for (const r of ctx.slice) {
+      const b = r[11] ?? -1;
+      if (b >= 0) byBrand.set(b, (byBrand.get(b) ?? 0) + 1);
+    }
+    const top = [...byBrand.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+    if (!top.length) return <div className="py-6 text-center text-xs text-slate-400">Нет данных о марках в срезе</div>;
+    const option: echarts.EChartsOption = {
+      tooltip: { trigger: "axis" },
+      xAxis: { type: "category", data: top.map(([i]) => app.dicts.brands[i] ?? "—"), axisLabel: { color: "#94a3b8", rotate: 30, fontSize: 9 } },
+      yAxis: { type: "value", splitLine: { lineStyle: { color: "#1e293b" } } },
+      series: [{ type: "bar", data: top.map(([, v]) => v), itemStyle: { color: "#f97316" } }],
+    };
+    return <EChart option={option} height={200} />;
   }
   return null;
 }
